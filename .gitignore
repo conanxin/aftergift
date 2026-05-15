@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+aftergift_dev.db
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# Logs and temp
+*.log
+logs/
+tmp/
+temp/
+.DS_Store
+
+# OS / editor
+.vscode/
+.idea/
+*.swp
+
+# Runtime artifacts
+/tmp/

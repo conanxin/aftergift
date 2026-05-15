@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>后来礼物 Aftergift — 故事型旧物流转平台</title>
+  <meta name="description" content="给一件旧礼物，一个体面的下一站。把关系结束后难以处理的礼物，变成可以被讲述、流转、出售、交换或捐出的故事物。">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    /* ── Phase 2D: 模式检测（必须在其他脚本之前运行）────────────── */
+    var _afParams = new URLSearchParams(location.search);
+    window.__AF_MODE  = _afParams.has('api') ? 'api' : 'static';
+    window.__AF_ADMIN = _afParams.has('admin') ? true : false;
+    window.__AF_API_BASE = 'http://127.0.0.1:8091';
+  </script>
+</head>
+<body>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero" id="hero">
+    <div class="hero-inner">
+      <div class="hero-badge" aria-label="产品定位">
+        <span class="badge-dot"></span>
+        故事型旧物流转平台
+      </div>
+      <h1 class="hero-title">
+        <span class="hero-title-zh">后来礼物</span>
+        <span class="hero-title-en">Aftergift</span>
+      </h1>
+      <p class="hero-slogan" aria-label="核心口号">给一件旧礼物，一个体面的下一站。</p>
+      <p class="hero-desc">
+        关系结束了，礼物还在。<br>
+        留着难受，扔掉可惜，转卖又缺少语境。<br>
+        在这里，每件礼物都可以被讲述，然后体面地流转。
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="scrollToSection('publish')" aria-label="发布一件礼物">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          发布一件礼物
+        </button>
+        <button class="btn btn-secondary" onclick="scrollToSection('stories')" aria-label="浏览礼物故事">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M3 5h14M3 10h10M3 15h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          浏览礼物故事
+        </button>
+      </div>
+      <div class="hero-scroll-hint" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="hero-bg-shape" aria-hidden="true"></div>
+  </section>
+
+  <!-- ========== CONCEPT ========== -->
+  <section class="concept" id="concept">
+    <div class="container">
+      <div class="concept-intro">
+        <h2 class="section-title">每一件礼物，都值得被好好告别</h2>
+        <p class="concept-text">
+          男女在谈恋爱、夫妻相处、朋友往来、家人或其他关系中，经常会互赠礼物。<br>
+          但当关系破裂、疏远、结束或发生重大变化后，这些礼物有时会变成一个难以处理的问题：<br>
+          <strong>留着会难受，扔掉又可惜，转卖又缺少语境。</strong>
+        </p>
+        <p class="concept-text concept-text-secondary">
+          后来礼物不是二手市场，不是前任吐槽区，也不是情感法庭。<br>
+          我们是<em>关系旧物的温柔流转平台</em>——你可以写下一个故事，然后选择：出售、交换、赠送、捐出，或者只讲完这个故事。
+        </p>
+      </div>
+
+      <div class="action-cards">
+        <div class="action-card">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2"/>
+              <path d="M16 24h16M28 18l4 6-4 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>出售</h3>
+          <p>为它定一个合理的价格，让它找到新的主人，开始新的使用场景。</p>
+        </div>
+        <div class="action-card">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 24c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M32 24c0 8.837-7.163 16-16 16S0 32.837 0 24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M38 16l6 8-6 8M10 16l-6 8 6 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>交换</h3>
+          <p>用一件礼物交换另一件，也许别人的心头好，正是你想告别的。</p>
+        </div>
+        <div class="action-card">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 6v6M24 36v6M6 24h6M36 24h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="24" cy="24" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M19 24l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>赠送 / 捐出</h3>
+          <p>免费送出去，或者捐给更需要的人，让礼物完成它最后的使命。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== GIFT STORIES ========== -->
+  <section class="stories" id="stories">
+    <div class="container">
+      <h2 class="section-title">礼物故事流</h2>
+      <p class="section-subtitle">每一件礼物，都曾是一段关系的见证</p>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs" role="tablist" aria-label="礼物筛选">
+        <button class="filter-tab active" data-filter="all" role="tab" aria-selected="true" aria-controls="giftGrid">全部</button>
+        <button class="filter-tab" data-filter="favorites" role="tab" aria-selected="false" aria-controls="giftGrid">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13" aria-hidden="true"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/></svg>
+          已收藏
+        </button>
+        <button class="filter-tab" data-filter="sell" role="tab" aria-selected="false" aria-controls="giftGrid">出售</button>
+        <button class="filter-tab" data-filter="exchange" role="tab" aria-selected="false" aria-controls="giftGrid">交换</button>
+        <button class="filter-tab" data-filter="giveaway" role="tab" aria-selected="false" aria-controls="giftGrid">赠送</button>
+        <button class="filter-tab" data-filter="donate" role="tab" aria-selected="false" aria-controls="giftGrid">捐出</button>
+        <button class="filter-tab" data-filter="keep" role="tab" aria-selected="false" aria-controls="giftGrid">只展示故事</button>
+      </div>
+
+      <!-- Gift Grid -->
+      <div class="gift-grid" id="giftGrid" aria-live="polite" aria-label="礼物列表"></div>
+
+      <!-- Load More Button -->
+      <div class="load-more-wrap">
+        <button class="btn btn-secondary load-more-btn" id="loadMoreBtn" style="display:none" aria-label="阅读更多故事">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 4v12M4 12l6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          阅读更多故事
+        </button>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState" style="display:none" role="status">
+        <div class="empty-state-icon" aria-hidden="true"></div>
+        <p class="empty-state-line" id="emptyStateLine">这一类礼物暂时还没有故事。</p>
+        <p class="empty-state-sub">也许下一件被温柔送走的旧物，就会出现在这里。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== PUBLISH ========== -->
+  <section class="publish" id="publish">
+    <div class="container">
+      <div class="publish-layout">
+        <div class="publish-info">
+          <h2 class="section-title">发布一件礼物</h2>
+          <p class="publish-tagline">
+            不必写得戏剧化。<br>
+            只要诚实地说出：<br>
+            <em>它曾经来过，现在该走了。</em>
+          </p>
+          <div class="publish-tips">
+            <div class="publish-tip">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M7 10.5l2 2 4-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>写下来，本身就是一个告别的仪式</span>
+            </div>
+            <div class="publish-tip">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span>选择处理方式：出售、交换、赠送、捐出，或只讲故事</span>
+            </div>
+            <div class="publish-tip">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M7 10.5l2 2 4-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>故事是可选的，但每一份真实都值得被听见</span>
+            </div>
+          </div>
+
+          <!-- Story Writing Tips -->
+          <div class="story-tips" id="storyTips" aria-label="写故事的小提示">
+            <div class="story-tips-title">写故事的小提示</div>
+            <div class="story-tip-items">
+              <div class="story-tip-item" onclick="insertStoryTip(0)" role="button" tabindex="0" aria-label="来历提示">
+                <div class="story-tip-icon">1</div>
+                <div class="story-tip-text">
+                  <div class="story-tip-label">来历</div>
+                  <div class="story-tip-desc">这件礼物是在什么时候来到你身边的？</div>
+                </div>
+              </div>
+              <div class="story-tip-item" onclick="insertStoryTip(1)" role="button" tabindex="0" aria-label="曾经的意义提示">
+                <div class="story-tip-icon">2</div>
+                <div class="story-tip-text">
+                  <div class="story-tip-label">曾经的意义</div>
+                  <div class="story-tip-desc">它曾经让你想起什么？承载了什么？</div>
+                </div>
+              </div>
+              <div class="story-tip-item" onclick="insertStoryTip(2)" role="button" tabindex="0" aria-label="现在的变化提示">
+                <div class="story-tip-icon">3</div>
+                <div class="story-tip-text">
+                  <div class="story-tip-label">现在的变化</div>
+                  <div class="story-tip-desc">为什么现在想让它离开？</div>
+                </div>
+              </div>
+              <div class="story-tip-item" onclick="insertStoryTip(3)" role="button" tabindex="0" aria-label="下一站提示">
+                <div class="story-tip-icon">4</div>
+                <div class="story-tip-text">
+                  <div class="story-tip-label">下一站</div>
+                  <div class="story-tip-desc">你希望下一个拥有它的人如何使用它？</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form class="publish-form" id="publishForm" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="giftName">礼物名称 <span class="required-mark" aria-hidden="true">*</span></label>
+              <input type="text" id="giftName" name="giftName" placeholder="例如：星空投影灯、羊绒围巾、拍立得相机" required aria-required="true" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="giftType">礼物类型 <span class="required-mark" aria-hidden="true">*</span></label>
+              <select id="giftType" name="giftType" required aria-required="true">
+                <option value="">请选择类型</option>
+                <option value="家居装饰">家居装饰</option>
+                <option value="文具">文具</option>
+                <option value="数码">数码</option>
+                <option value="配饰">配饰</option>
+                <option value="书籍">书籍</option>
+                <option value="玩具摆件">玩具摆件</option>
+                <option value="健康">健康</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="relation">关系类型</label>
+              <select id="relation" name="relation">
+                <option value="">不说明</option>
+                <option value="前任">前任</option>
+                <option value="挚友">挚友</option>
+                <option value="同事">同事</option>
+                <option value="恩师">恩师</option>
+                <option value="家人">家人</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="action">处理方式 <span class="required-mark" aria-hidden="true">*</span></label>
+              <select id="action" name="action" required aria-required="true">
+                <option value="">请选择处理方式</option>
+                <option value="sell">出售</option>
+                <option value="exchange">交换</option>
+                <option value="giveaway">赠送</option>
+                <option value="donate">捐出</option>
+                <option value="keep">只展示故事</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="emotion">情绪标签</label>
+            <div class="emotion-tags" id="emotionTags" role="group" aria-label="选择情绪标签">
+              <button type="button" class="emotion-tag" data-emotion="放下" aria-pressed="false">放下</button>
+              <button type="button" class="emotion-tag" data-emotion="遗憾" aria-pressed="false">遗憾</button>
+              <button type="button" class="emotion-tag" data-emotion="感谢" aria-pressed="false">感谢</button>
+              <button type="button" class="emotion-tag" data-emotion="释怀" aria-pressed="false">释怀</button>
+              <button type="button" class="emotion-tag" data-emotion="重启" aria-pressed="false">重启</button>
+              <button type="button" class="emotion-tag" data-emotion="纪念" aria-pressed="false">纪念</button>
+              <button type="button" class="emotion-tag" data-emotion="治愈" aria-pressed="false">治愈</button>
+              <button type="button" class="emotion-tag" data-emotion="平静" aria-pressed="false">平静</button>
+            </div>
+            <input type="hidden" id="emotion" name="emotion" value="">
+          </div>
+
+          <div class="form-group">
+            <label for="price">价格 / 交换意向</label>
+            <input type="text" id="price" name="price" placeholder="例如：￥280，或「交换同类治愈系小物件」" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="excerpt">一句话故事摘录 <span class="required-mark" aria-hidden="true">*</span></label>
+            <input type="text" id="excerpt" name="excerpt" placeholder="用一两句话，讲出这件礼物背后的故事" required aria-required="true" maxlength="100" autocomplete="off">
+            <span class="char-count" aria-live="polite"><span id="excerptCount">0</span>/100</span>
+          </div>
+
+          <div class="form-group">
+            <label for="fullStory">完整故事</label>
+            <textarea id="fullStory" name="fullStory" rows="5" placeholder="详细讲讲这件礼物的来历吧……它是怎么到你手上的，那段关系里你印象最深的是什么，为什么现在想和它告别？"></textarea>
+            <div class="full-story-footer">
+              <span class="char-count" aria-live="polite"><span id="fullStoryCount">0</span> 字</span>
+              <span class="story-quality-hint" id="storyQualityHint" style="display:none" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+
+          <!-- Privacy reminder -->
+          <div class="privacy-reminder" role="note" aria-label="隐私提醒">
+            <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 2L3 5v5c0 4.4 3 7.5 7 8.5 4-1 7-4.1 7-8.5V5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            <span><strong>请勿</strong>在故事中写明对方真实姓名、电话号码、具体地址、社交账号或可识别身份的信息。请用「TA」「那个人」「我的朋友」等代称。</span>
+          </div>
+
+          <div class="form-group form-group-check">
+            <label class="check-label" for="anonymous">
+              <input type="checkbox" id="anonymous" name="anonymous">
+              <span>匿名发布（不显示关系类型）</span>
+            </label>
+          </div>
+
+          <!-- AI Review Section -->
+          <div class="ai-review-section" aria-label="AI 编辑建议">
+            <div class="ai-review-intro">
+              <div class="ai-review-title">
+                <svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 21h6M10 17v4M14 17v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                发布前的温柔检查
+              </div>
+              <p class="ai-review-desc">这些建议只在你的浏览器本地生成，不会上传你的故事。它会帮助你减少可识别信息、攻击性表达和过度暴露的细节。</p>
+            </div>
+
+            <button type="button" class="ai-review-btn" id="aiReviewBtn" aria-label="运行 AI 编辑建议检查">
+              <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 2L3 5v5c0 4.4 3 7.5 7 8.5 4-1 7-4.1 7-8.5V5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              运行温柔检查
+            </button>
+
+            <!-- AI Review Panel (populated by JS) -->
+            <div class="ai-review-panel" id="aiReviewPanel" role="alert" aria-live="polite"></div>
+          </div>
+
+          <!-- Preview Button -->
+          <div class="preview-btn-wrap">
+            <button type="button" class="btn-preview" id="previewBtn" aria-label="预览发布效果">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+              预览发布效果
+            </button>
+          </div>
+
+          <!-- Publish Confirm Checkboxes -->
+          <div class="confirm-group" role="group" aria-label="发布前确认">
+            <div class="confirm-item">
+              <input type="checkbox" id="confirm1" aria-required="true">
+              <label class="confirm-label" for="confirm1">我确认故事中没有写下对方的真实姓名、联系方式、住址、公司或社交账号。</label>
+            </div>
+            <div class="confirm-item">
+              <input type="checkbox" id="confirm2" aria-required="true">
+              <label class="confirm-label" for="confirm2">我确认这不是为了报复、羞辱、曝光或引导他人攻击。</label>
+            </div>
+            <div class="confirm-item">
+              <input type="checkbox" id="confirm3" aria-required="true">
+              <label class="confirm-label" for="confirm3">我愿意把重点放在礼物、自己的感受和这件物品的下一站。</label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full" aria-label="发布礼物">
+            <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            发布礼物
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== ETHICS ========== -->
+  <section class="ethics" id="ethics">
+    <div class="container">
+      <h2 class="section-title">安全与伦理边界</h2>
+      <p class="ethics-lead">
+        我们处理的是礼物，不是审判一个人。<br>
+        你可以讲述关系，但不要暴露他人。
+      </p>
+      <div class="ethics-grid">
+        <div class="ethics-card ethics-card-forbid">
+          <div class="ethics-card-icon ethics-icon-forbid" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <h3>禁止事项</h3>
+          <ul>
+            <li>曝光他人姓名、照片、手机号、地址、公司、社交账号</li>
+            <li>发布侮辱、报复、控诉、诅咒式内容</li>
+            <li>把他人真实身份作为卖点或噱头</li>
+            <li>发布虚假信息或进行诈骗</li>
+            <li>鼓励网暴、制造猎奇传播</li>
+          </ul>
+        </div>
+        <div class="ethics-card ethics-card-encourage">
+          <div class="ethics-card-icon ethics-icon-encourage" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>鼓励方式</h3>
+          <ul>
+            <li>用「TA」「那个人」「曾经的某个人」等代称指代</li>
+            <li>聚焦礼物本身，以及你自己的感受</li>
+            <li>真实讲述，不过度戏剧化，不煽情渲染</li>
+            <li>让故事成为自我梳理和疗愈的一部分</li>
+            <li>放心匿名发布，平台不强制披露任何关系</li>
+          </ul>
+        </div>
+      </div>
+      <p class="ethics-note">
+        如发现违规内容，可点击详情页「举报隐私问题」按钮，我们会认真对待每一份反馈。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== ROADMAP ========== -->
+  <section class="roadmap" id="roadmap">
+    <div class="container">
+      <h2 class="section-title">产品路线图</h2>
+      <p class="section-subtitle">从故事到流转，从线上到线下</p>
+      <div class="roadmap-timeline">
+        <div class="roadmap-item">
+          <div class="roadmap-phase">MVP</div>
+          <h3>故事发布 &bull; 礼物浏览 &bull; 模拟交易意向</h3>
+          <p>发布带故事的礼物卡片，浏览他人的礼物与故事，表达「我想带走」「我想交换」的意向——纯前端原型阶段，不涉及真实支付与物流。</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-phase roadmap-phase-community">社区版</div>
+          <h3>收藏故事 &bull; 温和评论 &bull; 匿名私信</h3>
+          <p>让同路人可以收藏打动自己的故事，在不暴露身份的前提下温和交流。匿名私信功能让用户可以安全地联系发布者，不泄露真实身份。</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-phase roadmap-phase-trade">交易版</div>
+          <h3>担保交易 &bull; 物流追踪 &bull; 交换撮合</h3>
+          <p>引入平台担保付款、物流追踪、交换意向智能匹配，让礼物真正流转起来。平台不存储用户真实身份信息，交易双方以代号相称。</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-phase roadmap-phase-offline">线下版</div>
+          <h3>城市礼物交换会 &bull; 关系旧物展</h3>
+          <p>从线上走到线下，组织小规模城市礼物交换活动，甚至举办「关系旧物」主题策展——让告别变成一种有仪式感的集体行为。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-title">后来礼物</span>
+          <span class="footer-subtitle">Aftergift &bull; 故事型旧物流转平台</span>
+        </div>
+        <p class="footer-note">
+          这是一个静态原型演示，不处理真实交易，不存储用户数据。<br>
+          所有礼物故事均为虚构，产品路线图不代表任何承诺。
+        </p>
+        <p class="footer-mode-indicator" id="footerModeIndicator" style="display:none"></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========== DEV AUTH PANEL (only visible in api mode) ========== -->
+  <section class="dev-auth-section" id="devAuthSection" style="display:none" aria-label="开发者身份面板">
+    <div class="container">
+      <div class="dev-auth-card">
+        <div class="dev-auth-header">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 2a6 6 0 016 6c0 2.2-1 4.1-2.5 5.3L10 17l-3.5-3.7C5 12.1 4 10.2 4 8a6 6 0 016-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="7.5" cy="8" r="1" fill="currentColor"/><circle cx="12.5" cy="8" r="1" fill="currentColor"/></svg>
+          <span>开发者身份模拟</span>
+        </div>
+        <div class="dev-auth-body" id="devAuthBody">
+          <div class="dev-auth-loading" id="devAuthLoading">
+            <span>检测身份中…</span>
+          </div>
+        </div>
+        <div class="dev-auth-actions" id="devAuthActions" style="display:none">
+          <button class="btn btn-secondary btn-sm" id="devCreateIdentity" aria-label="创建匿名身份">
+            <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            创建匿名身份
+          </button>
+          <button class="btn btn-ghost btn-sm" id="devClearIdentity" aria-label="清除本地身份">
+            清除身份
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== ADMIN REVIEW PANEL (only visible in admin mode) ========== -->
+  <section class="admin-review-section" id="adminReviewSection" style="display:none" aria-label="管理员审核队列">
+    <div class="container">
+      <div class="admin-review-header">
+        <h2 class="section-title">审核队列</h2>
+        <p class="section-subtitle">审查待发布故事，处理隐私和内容风险</p>
+      </div>
+      <div class="admin-token-area" id="adminTokenArea">
+        <div class="admin-token-card">
+          <label for="adminTokenInput" class="admin-token-label">Admin Token</label>
+          <div class="admin-token-row">
+            <input type="password" id="adminTokenInput" class="admin-token-input" placeholder="输入 Admin Token" autocomplete="off" aria-label="Admin Token 输入框">
+            <button class="btn btn-secondary" id="adminLoadQueue" aria-label="加载审核队列">
+              <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden="true"><path d="M4 10c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 10l2-2m0 0l2 2m-2-2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              加载队列
+            </button>
+          </div>
+          <p class="admin-token-hint">开发期 token：<code id="adminTokenHint">dev-admin-aftergift-001</code></p>
+        </div>
+      </div>
+      <div class="admin-queue" id="adminQueue" style="display:none" aria-live="polite">
+        <!-- Populated by JS -->
+      </div>
+      <div class="admin-queue-empty" id="adminQueueEmpty" style="display:none" role="status">
+        <p>当前没有待审核的故事。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== MODAL ========== -->
+  <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal" id="modal" role="document">
+      <button class="modal-close" id="modalClose" aria-label="关闭详情" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="api-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
