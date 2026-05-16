@@ -18,6 +18,7 @@
   var MAX_DISPLAY = 100;
   var favorites = {};           // { id: true } synced with localStorage
   var favoritesMeta = {};       // { id: { favorite_created_at: '...', favorite_count: N } }
+  var favoritesCount = 0;       // cached total for badge display
   var searchMeta = { total: 0, page: 1, limit: 12, total_pages: 0, has_more: false };
   var currentView = 'home';     // 'home' | 'favorites'
 
@@ -59,6 +60,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     loadFavorites();
     loadFavoritesMeta();
+    updateHeroFavoritesBadge(); // Phase 2K-2: compute count and show badge
     checkUrlView();
     loadGifts();
     loadDiscoveryRails();
@@ -139,6 +141,7 @@
         saveFavorites();
         updateHeartIcon(cardHeart, serverFav);
         if (modalHeart) updateHeartIcon(modalHeart, serverFav);
+        window.updateHeroFavoritesBadge(); // Phase 2K-2: update badge
       }).catch(function (err) {
         // Revert optimistic update on failure
         if (isFav) {
@@ -149,6 +152,7 @@
         saveFavorites();
         updateHeartIcon(cardHeart, isFav);
         if (modalHeart) updateHeartIcon(modalHeart, isFav);
+        window.updateHeroFavoritesBadge(); // Phase 2K-2: revert badge
 
         var msg = (err && err.status === 401)
           ? '请先创建匿名身份，再收藏这个故事。'
@@ -156,6 +160,8 @@
         showToast(msg);
       });
     } else {
+      // Static mode: localStorage already saved above
+      window.updateHeroFavoritesBadge(); // Phase 2K-2: update badge
       showToast(isFav ? '已取消收藏' : '已收藏这个故事');
     }
   };
@@ -2377,11 +2383,17 @@
             total_pages: result.total_pages || 0,
             has_more: result.has_more || false
           };
+          favoritesCount = result.total || 0;
           updateFavoritesViewHeader();
           showModeIndicator('api', result.total || 0);
           renderGifts();
-        }).catch(function () {
-          showToast('无法加载收藏列表，请检查 API 连接');
+        }).catch(function (err) {
+          // Phase 2K-2: differentiate auth failure from network failure
+          var isAuthError = (err && (err.status === 401 || err.status === 403));
+          showToast(isAuthError
+            ? '身份已失效，请重新创建匿名身份。'
+            : '无法加载收藏列表，请检查 API 连接');
+          // Show gentle empty state for auth failure
           updateFavoritesViewHeader();
           renderGifts();
         });
@@ -2451,7 +2463,59 @@
       }
     };
 
-    window.updateHeroFavoritesButton();
+    // ── Phase 2K-2: Update Hero Favorites Badge ─────────────────────────────
+    // Shows badge count on hero favorites button.
+    // API mode: calls GET /api/gifts?favorites_of=me&limit=1 to get total count.
+    // Static mode: counts from localStorage favorites.
+    // Call after any favorite/unfavorite action or init.
+    window.updateHeroFavoritesBadge = function () {
+      var badge = document.getElementById('heroFavoritesBadge');
+      if (!badge) return;
+      var mode = window.__AF_MODE || 'static';
+
+      if (mode === 'api') {
+        var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+          ? window.AftergiftAPI.getStoredToken() : null;
+        if (!token) {
+          badge.style.display = 'none';
+          return;
+        }
+        // Fetch total count (limit=1, no items needed)
+        var params = { favorites_of: 'me', limit: 1, page: 1 };
+        window.AftergiftAPI.listGifts(params, []).then(function (res) {
+          var total = res && (res.total || res.items ? res.items.length : 0);
+          favoritesCount = total;
+          if (total > 0) {
+            badge.textContent = total > 99 ? '99+' : String(total);
+            badge.style.display = '';
+          } else {
+            badge.style.display = 'none';
+          }
+        }).catch(function () {
+          badge.style.display = 'none';
+        });
+      } else {
+        // Static mode: count from localStorage
+        var stored = null;
+        try { stored = localStorage.getItem('aftergift_favorites'); } catch (e) {}
+        var favs = stored ? JSON.parse(stored) : {};
+        var count = Object.keys(favs).filter(function (id) { return !!favs[id]; }).length;
+        favoritesCount = count;
+        if (count > 0) {
+          badge.textContent = count > 99 ? '99+' : String(count);
+          badge.style.display = '';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    };
+
+    // Update badge after every toggleFavorite
+    // Patch toggleFavorite to call updateHeroFavoritesBadge at the end
+    var _origToggleFavorite = window.toggleFavorite;
+    // (We will insert the badge update at the end of toggleFavorite — see there)
+
+    window.updateHeroFavoritesBadge(); // initial call during init
 
     // ── End Favorites View ──────────────────────────────────────────────────
 

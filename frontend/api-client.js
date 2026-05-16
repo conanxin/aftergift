@@ -228,6 +228,32 @@
       return true;
     });
 
+    // Phase 2K-2: Sort by favorite_created_at descending (newest first)
+    // Only applies when favorites_of=me is set
+    if (filters.favorites_of === 'me') {
+      items.sort(function (a, b) {
+        var aTime = (a.favorite_created_at || a.created_at || '');
+        var bTime = (b.favorite_created_at || b.created_at || '');
+        // Static mode: also check localStorage meta
+        if (!aTime) {
+          try {
+            var metaA = JSON.parse(localStorage.getItem('aftergift_favorites_meta') || '{}');
+            aTime = (metaA[a.id] && metaA[a.id].favorite_created_at) || '';
+          } catch (e) {}
+        }
+        if (!bTime) {
+          try {
+            var metaB = JSON.parse(localStorage.getItem('aftergift_favorites_meta') || '{}');
+            bTime = (metaB[b.id] && metaB[b.id].favorite_created_at) || '';
+          } catch (e) {}
+        }
+        if (!aTime && !bTime) return 0;
+        if (!aTime) return 1;  // missing time goes last
+        if (!bTime) return -1;
+        return bTime.localeCompare(aTime); // descending: newest first
+      });
+    }
+
     // Static pagination
     var page  = Math.max(1, parseInt(filters.page, 10) || 1);
     var limit = Math.max(1, Math.min(100, parseInt(filters.limit, 10) || 12));

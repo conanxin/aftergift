@@ -1,13 +1,15 @@
-# 收藏视图（Phase 2K-1）
+# 收藏视图（Phase 2K-1 + 2K-2）
 
 **状态**: ✅ 已完成
-**最后更新**: 2026-05-16
+**最后更新**: 2026-05-16（Phase 2K-2 更新）
 
 ---
 
 ## 概述
 
 收藏视图是 Aftergift 前端的一个独立浏览模式，通过 URL 参数 `?view=favorites` 触发。它展示当前用户收藏的所有礼物故事，支持 API 模式和静态双模式。
+
+**Phase 2K-2 更新**：新增收藏数量 Badge、按收藏时间倒序、auth 失败分级处理。
 
 ---
 
@@ -244,6 +246,88 @@ if (MODE !== 'api') {
 
 ---
 
-## NEXT
+## Phase 2K-2 新增功能
+
+### 收藏数量 Badge
+
+Hero「我的收藏」按钮新增数字 Badge，位于按钮文字右侧：
+
+```html
+<button id="heroFavoritesBtn" onclick="enterFavoritesView()">
+  <svg .../>
+  <span id="heroFavoritesLabel">我的收藏</span>
+  <span class="fav-badge" id="heroFavoritesBadge" style="display:none"></span>
+</button>
+```
+
+**显示逻辑**：
+- 有收藏（count > 0）：显示数字，最多 `99+`
+- 无收藏或未登录：隐藏 badge
+
+**API 模式**：`GET /api/gifts?favorites_of=me&limit=1`，取 `result.total` 作为收藏数
+
+**Static 模式**：统计 `localStorage['aftergift_favorites']` 中 `true` 值数量
+
+**触发时机**：初始化时 + 每次 `toggleFavorite` 成功/失败/静态分支后
+
+**CSS 样式**：
+```css
+.fav-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--primary); color: #fff;
+  font-size: 11px; font-weight: 600; line-height: 1; vertical-align: middle;
+  margin-left: 4px;
+}
+#heroFavoritesBtn .fav-badge {
+  background: rgba(255,255,255,0.25); color: #fff; /* 适配深色按钮 */
+}
+```
+
+### 按收藏时间倒序
+
+**API 模式**：后端 `favorites_of=me` 查询按 `favorites.created_at DESC` 返回已排序结果。
+
+**Static 模式**：`api-client.js` 的 `listGifts()` 在 `favorites_of=me` 时对结果排序：
+
+```javascript
+if (filters.favorites_of === 'me') {
+  items.sort(function (a, b) {
+    var aTime = a.favorite_created_at || a.created_at || '';
+    // 静态模式：优先取 localStorage favoritesMeta 中的时间
+    if (!aTime) { aTime = favoritesMeta[a.id]?.favorite_created_at || ''; }
+    var bTime = b.favorite_created_at || b.created_at || '';
+    if (!bTime) { bTime = favoritesMeta[b.id]?.favorite_created_at || ''; }
+    if (!aTime && !bTime) return 0;
+    if (!aTime) return 1;   // 缺少时间排最后
+    if (!bTime) return -1;
+    return bTime.localeCompare(aTime); // 倒序：最新收藏排最前
+  });
+}
+```
+
+### 统一 favorite meta 结构
+
+`normalizeGift()` 保证以下三个字段始终存在：
+
+```javascript
+favorite_count:     g.favorite_count || 0
+is_favorited:       !!(g.is_favorited || g.favorited)
+favorite_created_at: g.favorite_created_at || g.created_at || null
+```
+
+### Auth 失败分级处理
+
+`enterFavoritesView()` 的 `.catch()` 分层处理：
+
+| 场景 | Toast 提示 | 行为 |
+|------|-----------|------|
+| 无 token | "请先创建匿名身份，再查看你的收藏。" | 不进入收藏视图 |
+| 401/403（token 失效） | "身份已失效，请重新创建匿名身份。" | 显示温柔空状态 |
+| 网络错误 | "无法加载收藏列表，请检查 API 连接" | 显示空状态 |
+
+---
+
+## 相关文件
 
 **Phase 2K-2**: 收藏数量 Badge + 按收藏时间排序
