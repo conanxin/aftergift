@@ -1981,7 +1981,109 @@ section { padding: 80px 0; }
   padding-top: 6px;
 }
 
-/* Mobile edit modal */
+/* ── Phase 2H-2: My Actions Panel ── */
+.my-actions-panel {
+  padding: 16px 0;
+}
+.my-action-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  transition: box-shadow var(--transition);
+}
+.my-action-item:hover {
+  box-shadow: var(--shadow-md);
+}
+.my-action-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 6px;
+}
+.my-action-meta {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.my-action-note {
+  font-size: 0.85rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+.my-action-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-3);
+}
+.my-action-empty p {
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+/* ── Phase 2H-2: Edit Draft Notice ── */
+.edit-draft-notice {
+  background: #F5F0E8;
+  border: 1px solid #E8DFD0;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: #8A7E6E;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edit-draft-notice::before {
+  content: '✎';
+  font-size: 1rem;
+  opacity: 0.7;
+}
+.edit-draft-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.edit-draft-actions .btn-text {
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.edit-draft-actions .btn-text:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+/* ── Phase 2H-2: Restore Button ── */
+.mine-action-btn.restore {
+  background: #E8E2D8;
+  color: #6B635A;
+  border: 1px solid #D8D0C4;
+}
+.mine-action-btn.restore:hover {
+  background: #DDD5C8;
+  color: #4A443D;
+}
+
+/* Mobile my-actions */
+@media (max-width: 640px) {
+  .my-action-item {
+    padding: 12px 14px;
+  }
+  .my-action-meta {
+    gap: 8px;
+  }
+}
 @media (max-width: 640px) {
   .edit-modal-header {
     flex-direction: column;

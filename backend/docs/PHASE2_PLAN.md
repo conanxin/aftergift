@@ -251,10 +251,19 @@ TOKEN_EXPIRY_DAYS=***
 - [x] 语法检查 PASS
 - [x] 文档更新：MY_GIFT_MANAGEMENT.md, API_DESIGN.md, PHASE2_PLAN.md, API_INTEGRATION.md, NEXT_STEPS.md
 
-### 2H-2：草稿箱 / 撤回记录 🔲 待开始
-- [ ] 草稿自动保存（localStorage 或后端 draft 表）
-- [ ] 归档礼物恢复功能
-- [ ] 用户操作历史（编辑/提交/归档时间线）
+### 2H-2：草稿箱 / 归档恢复 / 用户操作历史 / API alias 清理 ✅ 已完成
+- [x] 新增 `user_actions` 表（migration 002）
+- [x] 新增 `/api/me/` 系列接口（me.py router）
+- [x] 旧路径 `/api/gifts/me/gifts/{id}` 保留兼容
+- [x] POST /api/me/gifts/{id}/restore：archived → pending_review
+- [x] GET /api/me/actions：查看当前用户操作历史
+- [x] 前端「操作历史」筛选标签
+- [x] 前端编辑 Modal 本地草稿自动保存（debounce 800ms）
+- [x] 前端 archived 卡片显示恢复按钮
+- [x] 测试 12/12 PASS
+- [x] 全量测试 PASS（117/117）
+- [x] 语法检查 PASS
+- [x] 文档更新：MY_ACTIONS_AND_RESTORE.md, API_DESIGN.md, MIGRATIONS.md, PHASE2_PLAN.md
 
 ---
 

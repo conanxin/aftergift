@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import APP_TITLE, APP_DESCRIPTION, VERSION, API_PREFIX
-from app.routers import gifts, reviews, favorites, reports, admin, auth
+from app.routers import gifts, reviews, favorites, reports, admin, auth, me
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ app.include_router(favorites.router, prefix=API_PREFIX)
 app.include_router(reports.router, prefix=API_PREFIX)
 app.include_router(admin.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(me.router, prefix=API_PREFIX)
 
 
 # ── Health ─────────────────────────────────────────────────────────────────────

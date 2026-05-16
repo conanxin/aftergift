@@ -541,7 +541,7 @@
     var token = getStoredToken();
     var headers = {};
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId), { headers: headers }).then(unwrap).then(normalizeGift);
+    return apiFetch('/api/me/gifts/' + encodeURIComponent(giftId), { headers: headers }).then(unwrap).then(normalizeGift);
   }
 
   function updateMyGift(giftId, payload) {
@@ -549,7 +549,7 @@
     var token = getStoredToken();
     var headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId), {
+    return apiFetch('/api/me/gifts/' + encodeURIComponent(giftId), {
       method: 'PATCH',
       headers: headers,
       body: JSON.stringify(payload)
@@ -561,7 +561,7 @@
     var token = getStoredToken();
     var headers = {};
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId) + '/resubmit', {
+    return apiFetch('/api/me/gifts/' + encodeURIComponent(giftId) + '/resubmit', {
       method: 'POST',
       headers: headers
     }).then(unwrap);
@@ -572,10 +572,38 @@
     var token = getStoredToken();
     var headers = {};
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId) + '/archive', {
+    return apiFetch('/api/me/gifts/' + encodeURIComponent(giftId) + '/archive', {
       method: 'POST',
       headers: headers
     }).then(unwrap);
+  }
+
+  function restoreMyGift(giftId) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return apiFetch('/api/me/gifts/' + encodeURIComponent(giftId) + '/restore', {
+      method: 'POST',
+      headers: headers
+    }).then(unwrap);
+  }
+
+  function getMyActions(params) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    var query = new URLSearchParams();
+    if (params) {
+      if (params.gift_id) query.set('gift_id', params.gift_id);
+      if (params.action) query.set('action', params.action);
+      if (params.page) query.set('page', String(params.page));
+      if (params.limit) query.set('limit', String(params.limit));
+    }
+    var qs = query.toString();
+    var url = '/api/me/actions' + (qs ? '?' + qs : '');
+    return apiFetch(url, { headers: headers }).then(unwrap);
   }
 
   // ── Export ─────────────────────────────────────────────────────────────────
@@ -599,6 +627,8 @@
     updateMyGift:   updateMyGift,
     resubmitMyGift: resubmitMyGift,
     archiveMyGift:  archiveMyGift,
+    restoreMyGift:  restoreMyGift,
+    getMyActions:   getMyActions,
     // Story
     reviewStory:    reviewStory,
     // Favorites

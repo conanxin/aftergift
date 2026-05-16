@@ -117,8 +117,19 @@
   function loadGifts() {
     // Detect mode from global set by inline <script> in index.html
     var mode = window.__AF_MODE || 'static';
-    var params = buildListParams();
 
+    // Phase 2H-2: my_actions uses a separate flow
+    if (currentFilter === 'my_actions') {
+      if (mode === 'api' && window.AftergiftAPI) {
+        loadMyActions();
+      } else {
+        gifts = [];
+        renderGifts();
+      }
+      return;
+    }
+
+    var params = buildListParams();
     if (mode === 'api' && window.AftergiftAPI) {
       // API mode: call FastAPI backend
       window.AftergiftAPI.listGifts(params, []).then(function (result) {
@@ -160,6 +171,10 @@
     }
     if (currentFilter === 'my_favorites') {
       params.favorites_of = 'me';
+    }
+    if (currentFilter === 'my_actions') {
+      // my_actions is handled separately
+      return null;
     }
     return params;
   }
@@ -213,6 +228,7 @@
       if (currentFilter === 'favorites') return !!favorites[g.id];
       if (currentFilter === 'mine') return true; // backend already filtered
       if (currentFilter === 'my_favorites') return true; // backend already filtered
+      if (currentFilter === 'my_actions') return true; // handled separately
       return g.action === currentFilter;
     });
 
@@ -225,6 +241,7 @@
         favorites: '你还没有收藏任何故事。\u003cbr\u003e也许有些旧物，会在某个时刻与你相遇。',
         mine:      '你还没有发布过礼物。\u003cbr\u003e也许现在就是写下第一个故事的时刻。',
         my_favorites: '你还没有收藏任何故事。\u003cbr\u003e也许有些旧物，会在某个时刻与你相遇。',
+        my_actions: '你还没有任何操作记录。\u003cbr\u003e当你编辑、提交、归档或恢复礼物时，这里会留下痕迹。',
         sell:      '这一类礼物暂时还没有故事。',
         exchange:  '这一类礼物暂时还没有故事。',
         giveaway:  '这一类礼物暂时还没有故事。',
@@ -321,12 +338,13 @@
     if (currentFilter === 'my_favorites' && g.favorite_created_at) {
       favTime = '<span class="gift-card-fav-time">收藏于 ' + escHtml(g.favorite_created_at) + '</span>';
     }
-    // Phase 2H-1: Action buttons for mine view
+    // Phase 2H-1/2H-2: Action buttons for mine view
     var mineActions = '';
     if (currentFilter === 'mine' && g.status) {
       var editable = { draft: true, pending_review: true, needs_edit: true };
       var resubmittable = { draft: true, needs_edit: true };
       var archivable = { published: true, pending_review: true, needs_edit: true };
+      var restorable = { archived: true };
       var btns = [];
       if (editable[g.status]) {
         btns.push('<button class="btn btn-sm btn-ghost mine-action-btn" data-action="edit" data-id="' + escHtml(g.id) + '">编辑故事</button>');
@@ -336,6 +354,9 @@
       }
       if (archivable[g.status]) {
         btns.push('<button class="btn btn-sm btn-ghost mine-action-btn" data-action="archive" data-id="' + escHtml(g.id) + '">暂时收起</button>');
+      }
+      if (restorable[g.status]) {
+        btns.push('<button class="btn btn-sm btn-primary mine-action-btn restore" data-action="restore" data-id="' + escHtml(g.id) + '">恢复审核</button>');
       }
       if (btns.length) {
         mineActions = '<div class="gift-card-mine-actions">' + btns.join('') + '</div>';
@@ -506,6 +527,15 @@
       });
       return;
     }
+    if (action === 'restore') {
+      window.AftergiftAPI.restoreMyGift(id).then(function () {
+        showToast('这件礼物已重新进入审核');
+        loadGifts();
+      }).catch(function (err) {
+        showToast('恢复失败：' + (err.message || ''));
+      });
+      return;
+    }
   }
 
   // ── Phase 2H-1: Edit Modal ──
@@ -563,11 +593,22 @@
       reviewNoteHtml = '<div class="edit-review-note"><strong>审核备注：</strong> ' + escHtml(g.review_note) + '</div>';
     }
 
-    return '<div class="edit-modal-header">' +
+    // Phase 2H-2: Draft auto-save notice
+    var draftKey = 'aftergift_edit_draft_' + g.id;
+    var draftNotice = '';
+    try {
+      var draft = localStorage.getItem(draftKey);
+      if (draft) {
+        draftNotice = '<div class="edit-draft-notice"><span>发现未保存的编辑草稿。</span><div class="edit-draft-actions"><button type="button" class="btn btn-sm btn-primary" id="editRestoreDraftBtn">恢复草稿</button><button type="button" class="btn btn-sm btn-ghost" id="editDiscardDraftBtn">丢弃草稿</button></div></div>';
+      }
+    } catch (e) {}
+
+    var html = '<div class="edit-modal-header">' +
       '<h2 class="edit-modal-title">编辑故事</h2>' +
       '<span class="edit-modal-status">状态：' + escHtml(g.status || '') + '</span>' +
     '</div>' +
     reviewNoteHtml +
+    draftNotice +
     '<form id="editGiftForm" class="edit-form">' +
       '<div class="form-group"><label class="form-label">礼物名称</label><input type="text" class="form-input" name="title" value="' + escHtml(g.name || '') + '" required></div>' +
       '<div class="form-group"><label class="form-label">礼物类型</label><input type="text" class="form-input" name="category" value="' + escHtml(g.type || '') + '" required></div>' +
@@ -583,11 +624,66 @@
         '<button type="button" class="btn btn-ghost" id="editCancelBtn">取消</button>' +
       '</div>' +
     '</form>';
+    return html;
   }
 
   function bindEditFormEvents(giftId) {
     var form = document.getElementById('editGiftForm');
     var cancelBtn = document.getElementById('editCancelBtn');
+    var draftKey = 'aftergift_edit_draft_' + giftId;
+    var draftTimer = null;
+
+    // Phase 2H-2: Auto-save draft on input
+    if (form) {
+      form.addEventListener('input', function () {
+        if (draftTimer) clearTimeout(draftTimer);
+        draftTimer = setTimeout(function () {
+          try {
+            var fd = new FormData(form);
+            var draft = {};
+            fd.forEach(function (v, k) {
+              if (k === 'is_anonymous') draft[k] = true;
+              else draft[k] = v;
+            });
+            if (!draft.hasOwnProperty('is_anonymous')) draft.is_anonymous = false;
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+          } catch (e) {}
+        }, 800);
+      });
+    }
+
+    // Restore draft button
+    var restoreDraftBtn = document.getElementById('editRestoreDraftBtn');
+    if (restoreDraftBtn) {
+      restoreDraftBtn.addEventListener('click', function () {
+        try {
+          var draft = JSON.parse(localStorage.getItem(draftKey) || '{}');
+          for (var k in draft) {
+            var el = form.querySelector('[name="' + k + '"]');
+            if (!el) continue;
+            if (el.type === 'checkbox') {
+              el.checked = !!draft[k];
+            } else {
+              el.value = draft[k];
+            }
+          }
+          showToast('草稿已恢复');
+        } catch (e) {}
+      });
+    }
+
+    // Discard draft button
+    var discardDraftBtn = document.getElementById('editDiscardDraftBtn');
+    if (discardDraftBtn) {
+      discardDraftBtn.addEventListener('click', function () {
+        try {
+          localStorage.removeItem(draftKey);
+          var notice = document.querySelector('.edit-draft-notice');
+          if (notice) notice.remove();
+        } catch (e) {}
+      });
+    }
+
     if (form) {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -600,9 +696,10 @@
             payload[k] = v;
           }
         });
-        // If checkbox not checked, FormData won't include it
         if (!payload.hasOwnProperty('is_anonymous')) payload.is_anonymous = false;
         window.AftergiftAPI.updateMyGift(giftId, payload).then(function () {
+          // Clear draft on success
+          try { localStorage.removeItem(draftKey); } catch (e) {}
           showToast('修改已保存');
           closeModal();
           loadGifts();
@@ -1167,10 +1264,11 @@
 
     // Phase 2G-2: mine / my_favorites require auth in api mode
     var mode = window.__AF_MODE || 'static';
-    if (mode === 'api' && (filter === 'mine' || filter === 'my_favorites')) {
+    if (mode === 'api' && (filter === 'mine' || filter === 'my_favorites' || filter === 'my_actions')) {
       var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken) ? window.AftergiftAPI.getStoredToken() : null;
       if (!token) {
-        showToast('请先创建匿名身份，再查看你的' + (filter === 'mine' ? '发布' : '收藏'));
+        var labelMap = { mine: '发布', my_favorites: '收藏', my_actions: '操作历史' };
+        showToast('请先创建匿名身份，再查看你的' + (labelMap[filter] || '内容'));
         return;
       }
     }
@@ -1185,25 +1283,28 @@
     btn.setAttribute('aria-selected', 'true');
 
     if (mode === 'api' && window.AftergiftAPI) {
-      // API mode: re-query with filter + preserved search
-      var params = buildListParams();
-      window.AftergiftAPI.listGifts(params, []).then(function (result) {
-        gifts = result.items;
-        searchMeta = {
-          total: result.total || 0,
-          page: result.page || 1,
-          limit: result.limit || 12,
-          total_pages: result.total_pages || 0,
-          has_more: result.has_more || false
-        };
-        renderGifts();
-      }).catch(function (err) {
-        if (err && err.message && err.message.indexOf('匿名身份') !== -1) {
-          showToast(err.message);
-        } else {
-          showToast('无法加载筛选结果，请检查 API 连接');
-        }
-      });
+      if (filter === 'my_actions') {
+        loadMyActions();
+      } else {
+        var params = buildListParams();
+        window.AftergiftAPI.listGifts(params, []).then(function (result) {
+          gifts = result.items;
+          searchMeta = {
+            total: result.total || 0,
+            page: result.page || 1,
+            limit: result.limit || 12,
+            total_pages: result.total_pages || 0,
+            has_more: result.has_more || false
+          };
+          renderGifts();
+        }).catch(function (err) {
+          if (err && err.message && err.message.indexOf('匿名身份') !== -1) {
+            showToast(err.message);
+          } else {
+            showToast('无法加载筛选结果，请检查 API 连接');
+          }
+        });
+      }
     } else {
       // Static mode: reload with filter + search
       loadStaticGifts();
@@ -1846,6 +1947,63 @@
         }
         btnEl.disabled = false;
         btnEl.textContent = label[decision] || decision;
+      });
+    }
+
+    // ── Phase 2H-2: Load My Actions ───────────────────────────────────────────
+    function loadMyActions() {
+      var mode = window.__AF_MODE || 'static';
+      if (mode !== 'api' || !window.AftergiftAPI) {
+        gifts = [];
+        renderGifts();
+        return;
+      }
+      var token = window.AftergiftAPI.getStoredToken ? window.AftergiftAPI.getStoredToken() : null;
+      if (!token) {
+        showToast('请先创建匿名身份，再查看操作历史。');
+        gifts = [];
+        renderGifts();
+        return;
+      }
+      window.AftergiftAPI.getMyActions({ page: 1, limit: 50 }).then(function (result) {
+        var items = (result && result.items) ? result.items : [];
+        // Transform user actions into gift-like cards for renderGifts reuse
+        gifts = items.map(function (a) {
+          var actionLabelMap = {
+            edit: '编辑故事',
+            resubmit: '重新提交',
+            archive: '暂时收起',
+            restore: '恢复审核'
+          };
+          return {
+            id: a.id,
+            title: a.gift_title || '未命名礼物',
+            category: '操作记录',
+            relation_type: 'my_action',
+            action_type: a.action,
+            action_label: actionLabelMap[a.action] || a.action,
+            emotion: '',
+            price_or_exchange: '',
+            short_story: a.note || '',
+            full_story: a.note || '',
+            status: 'my_action',
+            created_at: a.created_at,
+            updated_at: a.created_at,
+            is_anonymous: true,
+            anonymous_nickname: '我',
+            condition_note: '',
+            city_blur: '',
+            _is_action_record: true,
+            _action_meta: a
+          };
+        });
+        searchMeta = { total: gifts.length, page: 1, limit: 50, total_pages: 1, has_more: false };
+        showModeIndicator('api', gifts.length);
+        renderGifts();
+      }).catch(function () {
+        showToast('操作历史暂时加载失败，请稍后再试。');
+        gifts = [];
+        renderGifts();
       });
     }
 

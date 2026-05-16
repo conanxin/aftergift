@@ -40,12 +40,14 @@ def run_tests():
 
         expected = [
             'admin_actions', 'favorites', 'gift_stories', 'gifts',
-            'reports', 'review_logs', 'users'
+            'reports', 'review_logs', 'user_actions', 'users'
         ]
+        # Filter out sqlite_sequence (auto-created by SQLite for AUTOINCREMENT)
+        tables = [t for t in tables if t != 'sqlite_sequence']
         if sorted(tables) == sorted(expected):
-            results.append(("T1: Schema loads OK, 7 tables created", "PASS"))
+            results.append(("T1: Schema loads OK, 8 tables created", "PASS"))
         else:
-            results.append(("T1: Schema loads OK, 7 tables created", "FAIL",
+            results.append(("T1: Schema loads OK, 8 tables created", "FAIL",
                              f"Expected {expected}, got {tables}"))
     except Exception as e:
         results.append(("T1: Schema loads OK, 7 tables created", "FAIL", str(e)))

@@ -156,3 +156,19 @@ CREATE TABLE IF NOT EXISTS admin_actions (
 
 CREATE INDEX IF NOT EXISTS idx_admin_actions_admin_id ON admin_actions(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_actions_target ON admin_actions(target_type, target_id);
+
+-- ── User Actions ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  gift_id TEXT,
+  action TEXT NOT NULL,
+  note TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (gift_id) REFERENCES gifts(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_actions_user_id ON user_actions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_actions_gift_id ON user_actions(gift_id);
+CREATE INDEX IF NOT EXISTS idx_user_actions_created_at ON user_actions(created_at DESC);

@@ -35,7 +35,21 @@ MIGRATIONS = [
         "sql_file": _MIGRATIONS_DIR / "001_add_review_logs_redaction_summary.sql",
         "check_column": ("review_logs", "redaction_summary"),
     },
+    {
+        "name": "002_add_user_actions",
+        "sql_file": _MIGRATIONS_DIR / "002_add_user_actions.sql",
+        "check_table": "user_actions",
+    },
 ]
+
+
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    """检查表是否已存在。"""
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table,)
+    )
+    return cur.fetchone() is not None
 
 
 def _ensure_schema_migrations_table(conn: sqlite3.Connection) -> None:
@@ -91,6 +105,15 @@ def apply_migration(conn: sqlite3.Connection, migration: dict) -> str:
         )
         conn.commit()
         return f"skipped (column exists): {name}"
+
+    check_table = migration.get("check_table")
+    if check_table and _table_exists(conn, check_table):
+        conn.execute(
+            "INSERT INTO schema_migrations (migration_name) VALUES (?)",
+            (name,)
+        )
+        conn.commit()
+        return f"skipped (table exists): {name}"
 
     # Execute SQL file
     sql_path = migration["sql_file"]

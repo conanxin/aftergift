@@ -407,19 +407,17 @@
 
 ---
 
-## 附录：Phase 2H-1 我的发布管理接口
+## 附录：Phase 2H-2 我的发布管理接口（新路径）
 
-> 当前路径基于 `gifts.py` router prefix `/api/gifts`，因此实际路径为 `/api/gifts/me/gifts/{id}`。后续如需改为 `/api/me/gifts/{id}`，另开兼容迁移阶段。
+> 新路径基于独立的 `me.py` router，前缀 `/api/me`。旧路径 `/api/gifts/me/gifts/{id}` 仍保留兼容。
 
-### A.1 GET /api/gifts/me/gifts/{gift_id}
+### B.1 GET /api/me/gifts/{gift_id}
 
 **用途**：获取当前用户自己的礼物详情（含完整故事和审核备注）
 
 **权限**：Bearer Token（只能查看自己的礼物，非自己 → 404）
 
-**响应字段**：包含 `id`, `title`, `category`, `relation_type`, `action_type`, `emotion`, `price_or_exchange`, `condition_note`, `city_blur`, `is_anonymous`, `status`, `story`, `created_at`, `updated_at`, `review_note`
-
-### A.2 PATCH /api/gifts/me/gifts/{gift_id}
+### B.2 PATCH /api/me/gifts/{gift_id}
 
 **用途**：编辑自己的礼物
 
@@ -427,32 +425,58 @@
 
 **可编辑字段**：`title`, `category`, `relation_type`, `relation_label`, `action_type`, `emotion`, `price_or_exchange`, `condition_note`, `city_blur`, `is_anonymous`, `short_story`, `full_story`
 
-**状态规则**：仅 `draft` / `pending_review` / `needs_edit` 可编辑；`published` / `rejected` / `archived` → 409
+**状态规则**：仅 `draft` / `pending_review` / `needs_edit` 可编辑
 
-**审核复跑**：编辑 `short_story` 或 `full_story` 后自动重新运行 mock/OpenAI 审核，写入 `review_logs`，suggestions/evidence 仍脱敏
+**审核复跑**：编辑 `short_story` 或 `full_story` 后自动重新运行审核
 
-### A.3 POST /api/gifts/me/gifts/{gift_id}/resubmit
+### B.3 POST /api/me/gifts/{gift_id}/resubmit
 
 **用途**：重新提交礼物审核
 
 **权限**：Bearer Token
 
-**状态规则**：仅 `draft` / `needs_edit` 可重新提交
+**状态规则**：仅 `needs_edit` / `rejected` 可重新提交
 
-**行为**：重新运行审核，状态变为 `pending_review`（保守策略）
-
-### A.4 POST /api/gifts/me/gifts/{gift_id}/archive
+### B.4 POST /api/me/gifts/{gift_id}/archive
 
 **用途**：撤回（归档）自己的礼物
 
 **权限**：Bearer Token
 
-**状态规则**：`published` / `pending_review` / `needs_edit` 可归档
+**状态规则**：`published` / `pending_review` / `needs_edit` / `rejected` 可归档
 
-**行为**：状态变为 `archived`，普通 `GET /api/gifts` 不再返回，`mine=true` 仍可看到
+**行为**：状态变为 `archived`，普通列表不再返回
 
-**审计**：写入 `admin_actions`，`admin_id="self:<user_id>"`，note 记录用户自行归档（MVP 临时方案）
+### B.5 POST /api/me/gifts/{gift_id}/restore ⭐ Phase 2H-2 新增
+
+**用途**：恢复已归档的礼物
+
+**权限**：Bearer Token
+
+**状态规则**：仅 `archived` 可恢复
+
+**行为**：状态变为 `pending_review`，自动触发审核复跑
+
+### B.6 GET /api/me/actions ⭐ Phase 2H-2 新增
+
+**用途**：查看当前用户的操作历史
+
+**权限**：Bearer Token
+
+**Query 参数**：`gift_id`, `action`, `page`, `limit`
+
+**返回字段**：`id`, `user_id`, `gift_id`, `gift_title`, `action`, `note`, `created_at`
 
 ---
 
-*最后更新：Phase 2H-1 完成时更新。*
+## 附录：Phase 2H-1 旧路径（仍兼容）
+
+> 以下旧路径仍可用，但前端已全面切换至 `/api/me/` 新路径。
+
+### A.1 GET /api/gifts/me/gifts/{gift_id}
+
+（功能同 B.1，保留兼容）
+
+---
+
+*最后更新：Phase 2H-2 完成时更新。*
