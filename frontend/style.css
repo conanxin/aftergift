@@ -1025,6 +1025,19 @@ section { padding: 80px 0; }
 }
 .modal-actions .btn { font-size: 0.875rem; padding: 12px 16px; }
 
+/* Phase 2L-1: gentle hint when item is already favorited */
+.modal-fav-hint {
+  margin-top: 10px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  text-align: center;
+  border-radius: 6px;
+  background: rgba(120, 100, 80, 0.06);
+  border: 1px solid rgba(120, 100, 80, 0.12);
+  line-height: 1.5;
+}
+
 .toast {
   position: fixed;
   bottom: 32px;

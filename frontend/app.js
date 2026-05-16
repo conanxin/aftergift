@@ -142,6 +142,10 @@
         updateHeartIcon(cardHeart, serverFav);
         if (modalHeart) updateHeartIcon(modalHeart, serverFav);
         window.updateHeroFavoritesBadge(); // Phase 2K-2: update badge
+        // Phase 2L-1: gentle guide message
+        showToast(serverFav
+          ? '已收藏。稍后可在「我的收藏」中重新找到它。'
+          : '已从我的收藏移除。');
       }).catch(function (err) {
         // Revert optimistic update on failure
         if (isFav) {
@@ -162,7 +166,7 @@
     } else {
       // Static mode: localStorage already saved above
       window.updateHeroFavoritesBadge(); // Phase 2K-2: update badge
-      showToast(isFav ? '已取消收藏' : '已收藏这个故事');
+      showToast('已收藏。稍后可在「我的收藏」中重新找到它。');
     }
   };
 
@@ -743,7 +747,9 @@
           (isFav ? '已收藏' : '收藏故事') +
         '</button>' +
         '<button class="btn btn-ghost" data-action-btn="report" style="color:var(--accent-2)"><svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M3 10c0-4 3-7 7-7s7 3 7 7-3 7-7 7-7-3-7-7z" stroke="currentColor" stroke-width="1.5"/><path d="M10 7v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>举报隐私问题</button>' +
-      '</div>';
+      '</div>' +
+      // Phase 2L-1: gentle hint for favorited items
+      (isFav ? '<div class="modal-fav-hint" aria-live="polite">这个故事已经被放进你的收藏。</div>' : '');
 
     modalBody.querySelectorAll('[data-action-btn]').forEach(function (btn) {
       btn.addEventListener('click', function () {

@@ -328,6 +328,47 @@ favorite_created_at: g.favorite_created_at || g.created_at || null
 
 ---
 
+## Phase 2L-1 新增功能
+
+### 收藏时间标签
+
+收藏视图的每张卡片显示「收藏于 YYYY-MM-DD」：
+
+```javascript
+if (currentFilter === 'my_favorites' && g.favorite_created_at) {
+  favTime = '<span class="gift-card-fav-time">收藏于 ' + escHtml(g.favorite_created_at) + '</span>';
+}
+```
+
+- API 模式：`gift.favorite_created_at`（后端 favorites JOIN 返回）
+- Static 模式：`localStorage favoritesMeta[id].favorite_created_at`
+- 无 `favorite_created_at` 时不显示（稳定降级）
+
+CSS 样式见 `style.css` `.gift-card-fav-time`。
+
+### 收藏成功引导文案
+
+`toggleFavorite` 成功后 Toast：
+
+| 操作 | Toast 文案 |
+|------|-----------|
+| API 模式收藏成功 | "已收藏。稍后可在「我的收藏」中重新找到它。" |
+| API 模式取消收藏 | "已从我的收藏移除。" |
+| Static 模式收藏 | "已收藏。稍后可在「我的收藏」中重新找到它。" |
+
+### Modal 静默提示
+
+已收藏的礼物在 Modal 底部显示轻提示（不影响 action 按钮）：
+
+```html
+<div class="modal-fav-hint" aria-live="polite">这个故事已经被放进你的收藏。</div>
+```
+
+CSS 样式见 `style.css` `.modal-fav-hint`。
+
+---
+
 ## 相关文件
 
 **Phase 2K-2**: 收藏数量 Badge + 按收藏时间排序
+**Phase 2L-1**: 收藏时间标签 + 引导文案 + Modal 静默提示

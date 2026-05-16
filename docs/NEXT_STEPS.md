@@ -25,6 +25,7 @@
 | Phase 2I-0 | 本地内测准备 | 100% | smoke test、备份脚本、seed 数据指南、反馈表、release notes |
 | Phase 2K-1 | 收藏视图 | 100% | `?view=favorites`、Hero 收藏入口、返回首页、API favorites_of=me、静态模式 localStorage |
 | Phase 2K-2 | 收藏数量 Badge + 排序 | 100% | Hero 收藏按钮 Badge、按收藏时间倒序（最新收藏在前）、auth 失败分级处理 |
+| Phase 2L-1 | 社区功能准备 / Community Readiness | 100% | 收藏时间标签、收藏成功引导文案、Modal 静默提示、COMMUNITY_READINESS.md |
 
 ---
 
@@ -270,10 +271,22 @@ Phase 2I（基础内容推荐）🔲 下一步推荐
   ├── 热门故事排序
   └── 新发布故事流
 
-Phase 3A（社区功能）
+Phase 2K（收藏体验）✅ 已完成
+  ├── 2K-1 收藏视图 ✅
+  ├── 2K-2 收藏数量 Badge + 排序 ✅
+  └── 2K-2.1 测试基线修复 ✅
+
+Phase 2L（社区功能准备）✅ 已完成
+  ├── 2L-1 收藏时间标签 ✅
+  ├── 2L-1 收藏成功引导文案 ✅
+  ├── 2L-1 Modal 静默提示 ✅
+  └── 2L-1 COMMUNITY_READINESS.md ✅（安全边界 + API 设计预留）
+
+Phase 3A（社区功能）🔲 待定（需 Phase 2L 安全评审）
   ├── 收藏故事 ✅（已完成）
-  ├── 匿名评论
-  └── 匿名私信
+  ├── 温和评论系统（先发后审 + 模板化开场白）
+  └── 匿名私信（模板化中继）
+  ⚠️ 评论/私信暂不开放，需先完成审核队列产品化和匿名中继设计
 
 Phase 3B（交易功能）
   └── （需完成 Phase 2E-I + 完整审核机制后再评估）
