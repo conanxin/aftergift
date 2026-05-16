@@ -98,6 +98,51 @@ def _excerpt(text: str | None, max_len: int = 120) -> str:
     return t[:max_len] + "……"
 
 
+# ── Row → item helper (shared) ───────────────────────────────────────────────
+
+def _row_to_list_item(row, *, current_user_id: str | None = None,
+                      favorited_ids: set | None = None,
+                      q: str | None = None,
+                      favorites_of: str | None = None) -> dict:
+    """Convert a SQLite row to a GiftListItem dict."""
+    matched = _build_matched_fields(row, q)
+    story_text = row["short_story"] or row["full_story"] or ""
+    gift_id = row["id"]
+    is_mine = current_user_id is not None and row["user_id"] == current_user_id
+    is_favorited = (favorited_ids is not None) and (gift_id in favorited_ids)
+    favorite_created_at = row["favorite_created_at"] if favorites_of == "me" else None
+    favorite_count = row["favorite_count"] if "favorite_count" in row.keys() else 0
+
+    item = {
+        "id": gift_id,
+        "title": row["title"],
+        "category": row["category"],
+        "relation_type": row["relation_type"],
+        "relation_label": row["relation_label"],
+        "action_type": row["action_type"],
+        "action_label": _build_action_label(row["action_type"]),
+        "emotion": row["emotion"],
+        "excerpt": row["short_story"],
+        "story_excerpt": _excerpt(story_text),
+        "price_or_exchange": row["price_or_exchange"],
+        "status": row["status"],
+        "is_anonymous": bool(row["is_anonymous"]),
+        "anonymous_nickname": row["anonymous_nickname"],
+        "created_at": row["created_at"],
+        "city_blur": row["city_blur"],
+        "matched_fields": matched if q else None,
+        "search_highlight": None,
+        # Phase 2G-2 extras
+        "is_mine": is_mine,
+        "is_favorited": is_favorited,
+        # Phase 2I-1
+        "favorite_count": favorite_count,
+    }
+    if favorite_created_at:
+        item["favorite_created_at"] = favorite_created_at
+    return item
+
+
 # ── List gifts (Phase 2G-1 enhanced, Phase 2G-2 mine/favorites) ──────────────
 
 @router.get("")
@@ -157,11 +202,15 @@ def list_gifts(
                    g.action_type, g.emotion, gs.short_story, gs.full_story,
                    g.price_or_exchange, g.status, g.is_anonymous,
                    u.anonymous_nickname, g.created_at, g.city_blur,
-                   f.created_at as favorite_created_at
+                   f.created_at as favorite_created_at,
+                   COALESCE(fc.count, 0) as favorite_count
             FROM favorites f
             JOIN gifts g ON f.gift_id = g.id
             JOIN users u ON g.user_id = u.id
             LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            LEFT JOIN (
+                SELECT gift_id, COUNT(*) as count FROM favorites GROUP BY gift_id
+            ) fc ON g.id = fc.gift_id
             WHERE f.user_id = ? AND g.status = 'published'
         """
         count_sql = """
@@ -177,10 +226,14 @@ def list_gifts(
             SELECT g.id, g.user_id, g.title, g.category, g.relation_type, g.relation_label,
                    g.action_type, g.emotion, gs.short_story, gs.full_story,
                    g.price_or_exchange, g.status, g.is_anonymous,
-                   u.anonymous_nickname, g.created_at, g.city_blur
+                   u.anonymous_nickname, g.created_at, g.city_blur,
+                   COALESCE(fc.count, 0) as favorite_count
             FROM gifts g
             JOIN users u ON g.user_id = u.id
             LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            LEFT JOIN (
+                SELECT gift_id, COUNT(*) as count FROM favorites GROUP BY gift_id
+            ) fc ON g.id = fc.gift_id
             WHERE 1=1
         """
         count_sql = """
@@ -261,39 +314,13 @@ def list_gifts(
 
     items = []
     for row in rows:
-        matched = _build_matched_fields(row, q)
-        story_text = row["short_story"] or row["full_story"] or ""
-        gift_id = row["id"]
-        is_mine = current_user_id is not None and row["user_id"] == current_user_id
-        is_favorited = gift_id in favorited_ids
-        favorite_created_at = row["favorite_created_at"] if favorites_of == "me" else None
-
-        item = {
-            "id": gift_id,
-            "title": row["title"],
-            "category": row["category"],
-            "relation_type": row["relation_type"],
-            "relation_label": row["relation_label"],
-            "action_type": row["action_type"],
-            "action_label": _build_action_label(row["action_type"]),
-            "emotion": row["emotion"],
-            "excerpt": row["short_story"],
-            "story_excerpt": _excerpt(story_text),
-            "price_or_exchange": row["price_or_exchange"],
-            "status": row["status"],
-            "is_anonymous": bool(row["is_anonymous"]),
-            "anonymous_nickname": row["anonymous_nickname"],
-            "created_at": row["created_at"],
-            "city_blur": row["city_blur"],
-            "matched_fields": matched if q else None,
-            "search_highlight": None,
-            # Phase 2G-2 extras
-            "is_mine": is_mine,
-            "is_favorited": is_favorited,
-        }
-        if favorite_created_at:
-            item["favorite_created_at"] = favorite_created_at
-        items.append(item)
+        items.append(_row_to_list_item(
+            row,
+            current_user_id=current_user_id,
+            favorited_ids=favorited_ids,
+            q=q,
+            favorites_of=favorites_of
+        ))
 
     total_pages = (total + limit - 1) // limit if limit > 0 else 0
     has_more = page < total_pages
@@ -318,6 +345,164 @@ def list_gifts(
         }
     })
 
+
+
+_RAIL_WHITELIST = {"latest", "popular", "gentle", "all"}
+
+
+def _discovery_query(rail: str, limit: int) -> tuple[str, list]:
+    """Return (sql, params) for a given discovery rail."""
+    base_select = """
+        SELECT g.id, g.user_id, g.title, g.category, g.relation_type, g.relation_label,
+               g.action_type, g.emotion, gs.short_story, gs.full_story,
+               g.price_or_exchange, g.status, g.is_anonymous,
+               u.anonymous_nickname, g.created_at, g.city_blur,
+               COALESCE(fc.count, 0) as favorite_count
+        FROM gifts g
+        JOIN users u ON g.user_id = u.id
+        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+        LEFT JOIN (
+            SELECT gift_id, COUNT(*) as count FROM favorites GROUP BY gift_id
+        ) fc ON g.id = fc.gift_id
+        WHERE g.status = 'published'
+    """
+    if rail == "latest":
+        sql = base_select + " ORDER BY g.created_at DESC LIMIT ?"
+        return sql, [limit]
+    if rail == "popular":
+        sql = base_select + " ORDER BY favorite_count DESC, g.created_at DESC LIMIT ?"
+        return sql, [limit]
+    if rail == "gentle":
+        # Prefer safe/caution stories; fallback to latest if no risk_level field available
+        sql = base_select + """ AND gs.risk_level IN ('safe', 'caution')
+            ORDER BY g.created_at DESC LIMIT ?"""
+        return sql, [limit]
+    raise ValueError(f"Unknown rail: {rail}")
+
+
+@router.get("/discovery")
+def discovery(
+    rail: str = Query("all", description="latest | popular | gentle | all"),
+    limit: int = Query(6, ge=1, le=20),
+):
+    """
+    Discovery rails — non-personalized, explainable recommendations.
+    Phase 2I-1
+    """
+    if rail not in _RAIL_WHITELIST:
+        raise HTTPException(status_code=400, detail={
+            "code": 400,
+            "message": f"非法 rail: {rail}",
+            "data": {"allowed": list(_RAIL_WHITELIST)}
+        })
+
+    conn = get_connection()
+    try:
+        if rail == "all":
+            result = {}
+            for r in ("latest", "popular", "gentle"):
+                sql, params = _discovery_query(r, limit)
+                cur = conn.execute(sql, params)
+                rows = cur.fetchall()
+                result[r] = [_row_to_list_item(row) for row in rows]
+            return wrap({
+                "rail": "all",
+                "rails": result,
+            })
+        else:
+            sql, params = _discovery_query(rail, limit)
+            cur = conn.execute(sql, params)
+            rows = cur.fetchall()
+            items = [_row_to_list_item(row) for row in rows]
+            return wrap({
+                "rail": rail,
+                "items": items,
+            })
+    finally:
+        close_connection(conn)
+
+
+# ── Similar Gifts (Phase 2I-1) ───────────────────────────────────────────────
+
+@router.get("/{gift_id}/similar")
+def similar_gifts(
+    gift_id: str,
+    limit: int = Query(4, ge=1, le=12),
+):
+    """
+    返回与指定礼物相似的故事。
+    相似度基于：emotion + relation_type + action_type + category。
+    无个性化追踪。
+    Phase 2I-1
+    """
+    conn = get_connection()
+    try:
+        # Verify base gift exists and is published
+        cur = conn.execute(
+            """SELECT g.*, gs.risk_level FROM gifts g
+               LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+               WHERE g.id = ? AND g.status = 'published'""",
+            [gift_id]
+        )
+        base = cur.fetchone()
+        if not base:
+            raise HTTPException(status_code=404, detail="礼物不存在或暂不可查看")
+
+        # Fetch candidates
+        cur = conn.execute("""
+            SELECT g.id, g.user_id, g.title, g.category, g.relation_type, g.relation_label,
+                   g.action_type, g.emotion, gs.short_story, gs.full_story,
+                   g.price_or_exchange, g.status, g.is_anonymous,
+                   u.anonymous_nickname, g.created_at, g.city_blur,
+                   COALESCE(fc.count, 0) as favorite_count
+            FROM gifts g
+            JOIN users u ON g.user_id = u.id
+            LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            LEFT JOIN (
+                SELECT gift_id, COUNT(*) as count FROM favorites GROUP BY gift_id
+            ) fc ON g.id = fc.gift_id
+            WHERE g.status = 'published' AND g.id != ?
+        """, [gift_id])
+        rows = cur.fetchall()
+
+        # Score
+        scored = []
+        for row in rows:
+            score = 0
+            reasons = []
+            if row["emotion"] == base["emotion"]:
+                score += 3
+                reasons.append("相同情绪")
+            if row["relation_type"] == base["relation_type"]:
+                score += 2
+                reasons.append("相同关系类型")
+            if row["action_type"] == base["action_type"]:
+                score += 1
+                reasons.append("相同处理方式")
+            if row["category"] == base["category"]:
+                score += 1
+                reasons.append("相同礼物类型")
+            if score > 0:
+                scored.append((score, row, reasons))
+
+        scored.sort(key=lambda x: (-x[0], x[1]["created_at"] or "", x[1]["id"]))
+        top = scored[:limit]
+
+        items = []
+        for score, row, reasons in top:
+            item = _row_to_list_item(row)
+            item["similarity_score"] = score
+            item["matched_reasons"] = reasons
+            item["matched_reason"]  = "、".join(reasons) if reasons else ""
+            items.append(item)
+
+        return wrap({
+            "base_gift_id": gift_id,
+            "strategy": "emotion_relation_action_similarity",
+            "items": items,
+        })
+    finally:
+        close_connection(conn)
 
 # ── Get gift detail ──────────────────────────────────────────────────────────
 
@@ -369,9 +554,13 @@ def get_gift(gift_id: str):
         "status": row["status"],
         "story": story,
         "created_at": row["created_at"],
-        "updated_at": row["updated_at"]
+        "updated_at": row["updated_at"],
+        # Phase 2I-1
+        "favorite_count": 0,
     })
 
+
+# ── Discovery Rails (Phase 2I-1) ─────────────────────────────────────────────
 
 # ── Create gift ──────────────────────────────────────────────────────────────
 

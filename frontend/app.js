@@ -57,6 +57,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     loadFavorites();
     loadGifts();
+    loadDiscoveryRails();
     bindEvents();
     initTextareas();
   });
@@ -183,6 +184,8 @@
     fetch('./data/gifts.json')
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        // Store for discovery + similar
+        window.__AF_STATIC_DATA = data;
         // Apply static search + filter locally
         var params = buildListParams();
         window.AftergiftAPI.listGifts(params, data).then(function (result) {
@@ -201,6 +204,228 @@
       .catch(function () {
         giftGrid.innerHTML = '<div class="empty-state"><p class="empty-state-line">无法加载礼物数据，请通过本地服务器打开（python3 -m http.server 8080）。</p></div>';
       });
+  }
+
+
+  // ── Phase 2I-1: Discovery Rails ───────────────────────────────────────────
+  function loadDiscoveryRails() {
+    var mode = window.__AF_MODE || 'static';
+    if (mode === 'api' && window.AftergiftAPI) {
+      window.AftergiftAPI.getDiscoveryRails().then(function (data) {
+        renderDiscoveryRails(data);
+      }).catch(function () {
+        // Silently skip discovery rails on API error
+      });
+    } else {
+      // Static mode: compute rails from local data
+      var staticData = window.__AF_STATIC_DATA;
+      if (staticData && staticData.length > 0) {
+        var rails = computeStaticRails(staticData);
+        renderDiscoveryRails(rails);
+      } else {
+        // Data not loaded yet, try again after a delay
+        setTimeout(function () {
+          var sd = window.__AF_STATIC_DATA;
+          if (sd && sd.length > 0) {
+            renderDiscoveryRails(computeStaticRails(sd));
+          }
+        }, 500);
+      }
+    }
+  }
+
+  function computeStaticRails(data) {
+    // latest: sort by created_at desc
+    var latest = data.slice().sort(function (a, b) {
+      return (b.created_at || '').localeCompare(a.created_at || '');
+    }).slice(0, 4);
+
+    // popular: sort by favorite_count desc
+    var popular = data.slice().sort(function (a, b) {
+      return (b.favorite_count || 0) - (a.favorite_count || 0);
+    }).slice(0, 4);
+
+    // gentle: filter by mood (放下, 释怀, 平静, 治愈)
+    var gentleMoods = ['放下', '释怀', '平静', '治愈'];
+    var gentle = data.filter(function (g) {
+      return gentleMoods.indexOf(g.mood || g.emotion || '') !== -1;
+    }).slice(0, 4);
+
+    return {
+      rails: [
+        { key: 'latest', title: '最新故事', subtitle: '刚刚来到这里的礼物', items: latest.map(normalizeGift) },
+        { key: 'popular', title: '最多收藏', subtitle: '被最多人记住的故事', items: popular.map(normalizeGift) },
+        { key: 'gentle', title: '温柔告别', subtitle: '已经放下的，轻轻送走', items: gentle.map(normalizeGift) }
+      ]
+    };
+  }
+
+  function renderDiscoveryRails(data) {
+    var container = document.getElementById('discoveryRails');
+    if (!container) return;
+    var rails = (data && data.rails) ? data.rails : [];
+    if (rails.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
+    var html = rails.map(function (rail) {
+      var itemsHtml = rail.items.map(function (g) {
+        return discoveryCardHTML(g);
+      }).join('');
+      return '<div class="discovery-rail" data-rail="' + escHtml(rail.key) + '">' +
+        '<div class="discovery-rail-header">' +
+          '<h3 class="discovery-rail-title">' + escHtml(rail.title) + '</h3>' +
+          '<span class="discovery-rail-subtitle">' + escHtml(rail.subtitle) + '</span>' +
+        '</div>' +
+        '<div class="discovery-rail-scroll">' + itemsHtml + '</div>' +
+      '</div>';
+    }).join('');
+    container.innerHTML = html;
+    bindDiscoveryEvents();
+  }
+
+  function discoveryCardHTML(g) {
+    var actionClass = 'action-' + (g.action || g.action_type || 'keep');
+    var emotionIcon = emotionIconSVG(g.emotion || g.mood || '放下');
+    return '<article class="discovery-card" data-id="' + g.id + '" tabindex="0" role="button">' +
+      '<div class="discovery-card-header">' +
+        '<h4 class="discovery-card-title">' + escHtml(g.name || g.title || '') + '</h4>' +
+        '<span class="gift-card-action ' + actionClass + '">' + escHtml(g.actionLabel || g.action_label || '') + '</span>' +
+      '</div>' +
+      '<div class="discovery-card-meta">' +
+        '<span class="gift-card-tag">' + escHtml(g.type || g.category || '') + '</span>' +
+        '<span class="gift-card-emotion">' + emotionIcon + escHtml(g.emotion || g.mood || '') + '</span>' +
+      '</div>' +
+      '<p class="discovery-card-excerpt">' + escHtml(g.excerpt || g.short_story || '') + '</p>' +
+      '<div class="discovery-card-footer">' +
+        '<span class="discovery-card-price">' + escHtml(g.price || g.price_or_exchange || '') + '</span>' +
+        '<span class="discovery-card-fav">' + (g.favorite_count || 0) + ' 收藏</span>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function bindDiscoveryEvents() {
+    var container = document.getElementById('discoveryRails');
+    if (!container) return;
+    container.querySelectorAll('.discovery-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var id = card.getAttribute('data-id');
+        if (id) openModal(id);
+      });
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+  }
+
+  // ── Phase 2I-1: Similar Stories ───────────────────────────────────────────
+  function loadSimilarStories(giftId) {
+    var mode = window.__AF_MODE || 'static';
+    if (mode === 'api' && window.AftergiftAPI) {
+      window.AftergiftAPI.getSimilarStories(giftId).then(function (data) {
+        renderSimilarStories(data);
+      }).catch(function () {
+        // Silently skip on error
+      });
+    } else {
+      var staticData = window.__AF_STATIC_DATA;
+      if (staticData && staticData.length > 0) {
+        var current = findGiftById(giftId);
+        if (!current) return;
+        var similar = computeStaticSimilar(current, staticData);
+        renderSimilarStories({ items: similar });
+      }
+    }
+  }
+
+  function computeStaticSimilar(current, allData) {
+    var currentMood = current.emotion || current.mood || '';
+    var currentRelation = current.relation || current.relation_type || '';
+    var currentTags = current.tags || [];
+    var scored = allData.filter(function (g) {
+      return g.id !== current.id;
+    }).map(function (g) {
+      var score = 0;
+      var reasons = [];
+      if ((g.mood || g.emotion || '') === currentMood && currentMood) {
+        score += 2.0;
+        reasons.push('相同情绪');
+      }
+      if ((g.relation_type || g.relation || '') === currentRelation && currentRelation) {
+        score += 2.0;
+        reasons.push('相同关系');
+      }
+      var gTags = g.tags || [];
+      currentTags.forEach(function (t) {
+        if (gTags.indexOf(t) !== -1) {
+          score += 1.0;
+          reasons.push('相同标签「' + t + '」');
+        }
+      });
+      return {
+        gift: normalizeGift(g),
+        score: score,
+        matched_reasons: reasons
+      };
+    });
+    scored.sort(function (a, b) { return b.score - a.score; });
+    return scored.slice(0, 3).map(function (s) {
+      return {
+        gift: s.gift,
+        similarity_score: s.score,
+        matched_reasons: s.matched_reasons
+      };
+    });
+  }
+
+  function renderSimilarStories(data) {
+    var container = document.getElementById('similarStories');
+    if (!container) return;
+    var items = (data && data.items) ? data.items : [];
+    if (items.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
+    var html = '<div class="similar-stories-header">' +
+      '<h3 class="similar-stories-title">相似故事</h3>' +
+      '<span class="similar-stories-subtitle">也许这些礼物，和你正在看的这件，有着相似的心情</span>' +
+    '</div>' +
+    '<div class="similar-stories-list">';
+    html += items.map(function (item) {
+      var g = item.gift;
+      var actionClass = 'action-' + (g.action || g.action_type || 'keep');
+      var reasons = (item.matched_reasons || []).join(' · ');
+      return '<article class="similar-story-card" data-id="' + g.id + '" tabindex="0" role="button">' +
+        '<div class="similar-story-header">' +
+          '<h4 class="similar-story-title">' + escHtml(g.name || g.title || '') + '</h4>' +
+          '<span class="gift-card-action ' + actionClass + '">' + escHtml(g.actionLabel || g.action_label || '') + '</span>' +
+        '</div>' +
+        '<p class="similar-story-excerpt">' + escHtml(g.excerpt || g.short_story || '') + '</p>' +
+        '<div class="similar-story-reason">' + escHtml(reasons) + '</div>' +
+      '</article>';
+    }).join('');
+    html += '</div>';
+    container.innerHTML = html;
+    container.querySelectorAll('.similar-story-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var id = card.getAttribute('data-id');
+        if (id) {
+          closeModal();
+          setTimeout(function () { openModal(id); }, 300);
+        }
+      });
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
   }
 
   // ── Mode indicator (footer) ──
@@ -470,6 +695,9 @@
 
     var firstBtn = modalBody.querySelector('[data-action-btn]') || modalClose;
     if (firstBtn) firstBtn.focus();
+
+    // Phase 2I-1: Load similar stories
+    loadSimilarStories(g.id);
   }
 
   function handleModalAction(action, gift, id) {
@@ -1102,6 +1330,8 @@
     document.body.style.overflow = 'hidden';
     document.getElementById('previewCloseBtn').focus();
   }
+
+  // ── Phase 2I-1: Discovery Rails ───────────────────────────────────────────
 
   // ── Story Tips ──
   window.insertStoryTip = function (index) {

@@ -113,6 +113,10 @@
       city_blur:     g.city_blur     || '',
       anonymous_nickname: g.anonymous_nickname || '',
       created_at: g.created_at || null,
+      // Phase 2I-1
+      favorite_count: g.favorite_count || 0,
+      similarity_score: g.similarity_score || null,
+      matched_reason: g.matched_reason || '',
     };
 
     return normalized;
@@ -261,6 +265,133 @@
       return Promise.reject(e);
     }
     return Promise.resolve(normalizeGift(found));
+  }
+
+  // ── Discovery Rails (Phase 2I-1) ───────────────────────────────────────────
+
+  function getDiscoveryRails(params) {
+    params = params || {};
+    if (MODE === 'api') {
+      var qs = new URLSearchParams();
+      qs.set('rail', params.rail || 'all');
+      qs.set('limit', String(Math.max(1, Math.min(20, params.limit || 6))));
+      return apiFetch('/api/gifts/discovery?' + qs.toString()).then(unwrap).then(function (data) {
+        if (data.rails) {
+          var rails = {};
+          Object.keys(data.rails).forEach(function (k) {
+            rails[k] = (data.rails[k] || []).map(normalizeGift);
+          });
+          return { rail: 'all', rails: rails };
+        }
+        return {
+          rail: data.rail,
+          items: (data.items || []).map(normalizeGift)
+        };
+      });
+    }
+    // Static fallback
+    return getStaticDiscoveryRails(params, []);
+  }
+
+  function getStaticDiscoveryRails(params, staticData) {
+    params = params || {};
+    var rail = params.rail || 'all';
+    var limit = Math.max(1, Math.min(20, params.limit || 6));
+    var items = (staticData || []).filter(function (g) {
+      return g.status === 'published' || !g.status;
+    });
+
+    function _sortLatest(arr) {
+      return arr.slice().sort(function (a, b) {
+        return (b.created_at || '') > (a.created_at || '') ? 1 : -1;
+      });
+    }
+    function _sortPopular(arr) {
+      return arr.slice().sort(function (a, b) {
+        var fa = (a.favorite_count || 0);
+        var fb = (b.favorite_count || 0);
+        if (fb !== fa) return fb - fa;
+        return (b.created_at || '') > (a.created_at || '') ? 1 : -1;
+      });
+    }
+
+    if (rail === 'latest') {
+      return Promise.resolve({ rail: 'latest', items: _sortLatest(items).slice(0, limit).map(normalizeGift) });
+    }
+    if (rail === 'popular') {
+      return Promise.resolve({ rail: 'popular', items: _sortPopular(items).slice(0, limit).map(normalizeGift) });
+    }
+    if (rail === 'gentle') {
+      return Promise.resolve({ rail: 'gentle', items: _sortLatest(items).slice(0, limit).map(normalizeGift) });
+    }
+    // all
+    return Promise.resolve({
+      rail: 'all',
+      rails: {
+        latest: _sortLatest(items).slice(0, limit).map(normalizeGift),
+        popular: _sortPopular(items).slice(0, limit).map(normalizeGift),
+        gentle: _sortLatest(items).slice(0, limit).map(normalizeGift),
+      }
+    });
+  }
+
+  // ── Similar Gifts (Phase 2I-1) ─────────────────────────────────────────────
+
+  function getSimilarGifts(giftId, params) {
+    params = params || {};
+    if (MODE === 'api') {
+      var qs = new URLSearchParams();
+      qs.set('limit', String(Math.max(1, Math.min(12, params.limit || 4))));
+      return apiFetch('/api/gifts/' + encodeURIComponent(giftId) + '/similar?' + qs.toString())
+        .then(unwrap).then(function (data) {
+          return {
+            base_gift_id: data.base_gift_id,
+            strategy: data.strategy,
+            items: (data.items || []).map(normalizeGift)
+          };
+        });
+    }
+    // Static fallback
+    return getStaticSimilarGifts(giftId, params, []);
+  }
+
+  function getStaticSimilarGifts(giftId, params, staticData) {
+    params = params || {};
+    var limit = Math.max(1, Math.min(12, params.limit || 4));
+    var base = null;
+    (staticData || []).forEach(function (g) {
+      if (g.id === giftId) base = g;
+    });
+    if (!base) {
+      return Promise.reject(new Error('礼物不存在'));
+    }
+    var candidates = (staticData || []).filter(function (g) {
+      return g.id !== giftId && (g.status === 'published' || !g.status);
+    });
+    var scored = candidates.map(function (g) {
+      var score = 0;
+      var reasons = [];
+      if (g.emotion === base.emotion) { score += 3; reasons.push('相同情绪'); }
+      if ((g.relation || g.relation_type) === (base.relation || base.relation_type)) { score += 2; reasons.push('相同关系类型'); }
+      if ((g.action || g.action_type) === (base.action || base.action_type)) { score += 1; reasons.push('相同处理方式'); }
+      if ((g.type || g.category) === (base.type || base.category)) { score += 1; reasons.push('相同礼物类型'); }
+      return { score: score, gift: g, reasons: reasons };
+    }).filter(function (s) { return s.score > 0; });
+    scored.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return (b.gift.created_at || '') > (a.gift.created_at || '') ? 1 : -1;
+    });
+    var items = scored.slice(0, limit).map(function (s) {
+      var n = normalizeGift(s.gift);
+      n.similarity_score = s.score;
+      n.matched_reason = s.reasons.join('、');
+      return n;
+    });
+    return Promise.resolve({
+      base_gift_id: giftId,
+      strategy: 'emotion_relation_action_similarity',
+      items: items
+    });
   }
 
   // ── Create Gift ────────────────────────────────────────────────────────────
@@ -629,6 +760,11 @@
     archiveMyGift:  archiveMyGift,
     restoreMyGift:  restoreMyGift,
     getMyActions:   getMyActions,
+    // Discovery (Phase 2I-1)
+    getDiscoveryRails: getDiscoveryRails,
+    getStaticDiscoveryRails: getStaticDiscoveryRails,
+    getSimilarGifts: getSimilarGifts,
+    getStaticSimilarGifts: getStaticSimilarGifts,
     // Story
     reviewStory:    reviewStory,
     // Favorites
