@@ -41,8 +41,9 @@ temp/
 .idea/
 *.swp
 
-# Runtime artifacts
-/tmp/
+# Backups and exports
+backups/
+exports/
 *.db
 *.sqlite
 *.sqlite3

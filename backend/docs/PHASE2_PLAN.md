@@ -267,7 +267,19 @@ TOKEN_EXPIRY_DAYS=***
 
 ---
 
-## Phase 2I：基础内容推荐 🔲 待开始
+### Phase 2I-0：本地内测准备（Beta Readiness）✅ 已完成
+- [x] smoke_check.py — 一键检查本地 MVP 可运行性
+- [x] backup_db.py — SQLite 数据库备份
+- [x] export_public_data.py — 脱敏公开数据导出
+- [x] BETA_SEED_DATA.md — 推荐 seed 数据规模和分布
+- [x] BETA_TEST_PLAN.md — 内测计划（测试路径、观察指标）
+- [x] BETA_FEEDBACK_FORM.md — 可复制到问卷的反馈表
+- [x] KNOWN_ISSUES.md — 当前限制与已知问题清单
+- [x] RELEASE_NOTES_PHASE2_LOCAL_BETA.md — 内测版 Release Notes
+- [x] README.md 更新（Local Beta Readiness 章节）
+- [x] NEXT_STEPS.md 更新
+
+## Phase 2I：基础内容推荐 🔲 下一步
 
 **目标**：实现按情绪/关系类型的基础内容推荐
 

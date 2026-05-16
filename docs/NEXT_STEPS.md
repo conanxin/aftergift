@@ -21,6 +21,8 @@
 | Phase 2G-1 | 搜索 API + 前端搜索 UI | 100% | 多维搜索、筛选、分页、排序 |
 | Phase 2G-2 | 我的发布 / 我的收藏 | 100% | mine=true、favorites_of=me、前端筛选标签、状态 badge |
 | Phase 2H-1 | 我的发布管理 | 100% | GET/PATCH/resubmit/archive、前端编辑 Modal、状态机保护 |
+| Phase 2H-2 | 恢复/操作历史/API alias | 100% | restore、user_actions、/api/me/ 路径、编辑草稿自动保存 |
+| Phase 2I-0 | 本地内测准备 | 100% | smoke test、备份脚本、seed 数据指南、反馈表、release notes |
 
 ---
 
@@ -252,9 +254,14 @@ Phase 2G（内容发现）
   └── 2G-2 我的发布 / 我的收藏 ✅
 
 Phase 2H（个人内容管理增强）✅ 已完成
-  ├── 编辑已发布/退回的故事 ✅
-  ├── 删除自己的故事 🔲
-  └── 重新提交审核 ✅
+  ├── 2H-1 编辑/重新提交/归档 ✅
+  └── 2H-2 恢复/操作历史/API alias ✅
+
+Phase 2I-0（本地内测准备）✅ 已完成
+  ├── smoke_check.py / backup_db.py / export_public_data.py
+  ├── BETA_SEED_DATA.md / BETA_TEST_PLAN.md / BETA_FEEDBACK_FORM.md
+  ├── KNOWN_ISSUES.md / RELEASE_NOTES_PHASE2_LOCAL_BETA.md
+  └── README.md 更新
 
 Phase 2I（基础内容推荐）🔲 下一步推荐
   ├── 按情绪/关系类型推荐相似故事
@@ -284,14 +291,14 @@ Phase 3B（交易功能）
 - 全量测试 105/105 PASS
 
 ### 当前限制
-- 路径层级较深：`/api/gifts/me/gifts/{id}`（因 gifts router prefix）
-- 无草稿自动保存
-- 归档后无法恢复
-- 无用户操作历史时间线
+- 路径层级较深：`/api/gifts/me/gifts/{id}`（因 gifts router prefix）→ Phase 2H-2 已新增 `/api/me/gifts/{id}`
+- 无草稿自动保存 → Phase 2H-2 已实现 localStorage 草稿
+- 归档后无法恢复 → Phase 2H-2 已实现 restore
+- 无用户操作历史时间线 → Phase 2H-2 已实现 user_actions
 
 ### 下一步建议
 **Phase 2I：基础内容推荐**（按情绪/关系类型推荐相似故事、热门排序、新发布流）
-或 **Phase 2H-2：草稿箱 / 撤回记录**（自动保存、归档恢复、操作历史）
+或根据内测反馈优先修复
 
 ---
 
