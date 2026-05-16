@@ -320,6 +320,79 @@
     return Promise.resolve({ ok: true, mode: 'static' });
   }
 
+  // ── Admin ────────────────────────────────────────────────────────────────────
+
+  function _adminHeaders(token) {
+    return { 'Content-Type': 'application/json', 'X-Admin-Token': token };
+  }
+
+  function getAdminReviews(params, token) {
+    if (MODE !== 'api') return Promise.resolve({ items: [], total: 0 });
+    var qs = new URLSearchParams();
+    if (params.status)     qs.set('status',     params.status);
+    if (params.risk_level) qs.set('risk_level', params.risk_level);
+    if (params.provider)   qs.set('provider',   params.provider);
+    if (params.page)       qs.set('page',       String(params.page));
+    if (params.limit)      qs.set('limit',      String(params.limit));
+    if (params.sort)       qs.set('sort',       params.sort);
+    if (params.order)      qs.set('order',      params.order);
+    return apiFetch('/api/admin/reviews?' + qs.toString(), {
+      headers: _adminHeaders(token)
+    }).then(unwrap);
+  }
+
+  function decideAdminReview(giftId, payload, token) {
+    if (MODE !== 'api') return Promise.resolve({ ok: true, mode: 'static' });
+    return apiFetch('/api/admin/reviews/' + encodeURIComponent(giftId) + '/decision', {
+      method: 'POST',
+      headers: _adminHeaders(token),
+      body: JSON.stringify({ decision: payload.decision, note: payload.note || '' })
+    }).then(unwrap);
+  }
+
+  function getAdminReports(params, token) {
+    if (MODE !== 'api') return Promise.resolve({ items: [], total: 0 });
+    var qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.reason) qs.set('reason', params.reason);
+    if (params.page)   qs.set('page',   String(params.page));
+    if (params.limit)  qs.set('limit',  String(params.limit));
+    if (params.sort)   qs.set('sort',   params.sort);
+    if (params.order)  qs.set('order',  params.order);
+    return apiFetch('/api/admin/reports?' + qs.toString(), {
+      headers: _adminHeaders(token)
+    }).then(unwrap);
+  }
+
+  function decideAdminReport(reportId, payload, token) {
+    if (MODE !== 'api') return Promise.resolve({ ok: true, mode: 'static' });
+    return apiFetch('/api/admin/reports/' + encodeURIComponent(reportId) + '/decision', {
+      method: 'POST',
+      headers: _adminHeaders(token),
+      body: JSON.stringify({ decision: payload.decision, note: payload.note || '' })
+    }).then(unwrap);
+  }
+
+  function getAdminReviewLogs(giftId, token) {
+    if (MODE !== 'api') return Promise.resolve({ items: [], total: 0 });
+    return apiFetch('/api/admin/reviews/' + encodeURIComponent(giftId) + '/logs', {
+      headers: _adminHeaders(token)
+    }).then(unwrap);
+  }
+
+  function getAdminActions(params, token) {
+    if (MODE !== 'api') return Promise.resolve({ items: [], total: 0 });
+    var qs = new URLSearchParams();
+    if (params.target_type) qs.set('target_type', params.target_type);
+    if (params.target_id)   qs.set('target_id',   params.target_id);
+    if (params.action)      qs.set('action',      params.action);
+    if (params.page)        qs.set('page',        String(params.page));
+    if (params.limit)       qs.set('limit',       String(params.limit));
+    return apiFetch('/api/admin/actions?' + qs.toString(), {
+      headers: _adminHeaders(token)
+    }).then(unwrap);
+  }
+
   // ── Health check ────────────────────────────────────────────────────────────
 
   function checkHealth() {
@@ -430,6 +503,13 @@
     unfavoriteGift: unfavoriteGift,
     // Report
     reportGift:     reportGift,
+    // Admin
+    getAdminReviews:     getAdminReviews,
+    decideAdminReview:   decideAdminReview,
+    getAdminReports:     getAdminReports,
+    decideAdminReport:   decideAdminReport,
+    getAdminReviewLogs:  getAdminReviewLogs,
+    getAdminActions:     getAdminActions,
     // Health
     checkHealth:    checkHealth,
     // Normalize

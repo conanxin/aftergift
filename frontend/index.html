@@ -473,7 +473,7 @@
   <section class="admin-review-section" id="adminReviewSection" style="display:none" aria-label="管理员审核队列">
     <div class="container">
       <div class="admin-review-header">
-        <h2 class="section-title">审核队列</h2>
+        <h2 class="section-title">审核台</h2>
         <p class="section-subtitle">审查待发布故事，处理隐私和内容风险</p>
       </div>
       <div class="admin-token-area" id="adminTokenArea">
@@ -489,6 +489,56 @@
           <p class="admin-token-hint">开发期 token：<code id="adminTokenHint">dev-admin-aftergift-001</code></p>
         </div>
       </div>
+
+      <!-- Phase 2F: Admin Tabs -->
+      <div class="admin-tabs" id="adminTabs" style="display:none">
+        <button class="admin-tab active" data-tab="reviews" aria-selected="true">审核队列</button>
+        <button class="admin-tab" data-tab="reports" aria-selected="false">举报队列</button>
+        <button class="admin-tab" data-tab="actions" aria-selected="false">操作历史</button>
+      </div>
+
+      <!-- Phase 2F: Filter Bar -->
+      <div class="admin-filter-bar" id="adminFilterBar" style="display:none">
+        <select id="adminFilterStatus" class="admin-filter-select" aria-label="状态筛选">
+          <option value="">全部状态</option>
+          <option value="pending_review" selected>待审</option>
+          <option value="needs_edit">需修改</option>
+          <option value="published">已发布</option>
+          <option value="rejected">已拒绝</option>
+          <option value="archived">已归档</option>
+        </select>
+        <select id="adminFilterRisk" class="admin-filter-select" aria-label="风险等级筛选">
+          <option value="">全部风险</option>
+          <option value="safe">安全</option>
+          <option value="caution">注意</option>
+          <option value="high_risk">高风险</option>
+        </select>
+        <select id="adminFilterProvider" class="admin-filter-select" aria-label="Provider 筛选">
+          <option value="">全部 Provider</option>
+          <option value="mock">Mock</option>
+          <option value="openai">OpenAI</option>
+          <option value="openai+mock">OpenAI+Mock</option>
+          <option value="baidu">Baidu</option>
+        </select>
+        <select id="adminFilterSort" class="admin-filter-select" aria-label="排序字段">
+          <option value="created_at">创建时间</option>
+          <option value="risk_level">风险等级</option>
+          <option value="status">状态</option>
+        </select>
+        <select id="adminFilterOrder" class="admin-filter-select" aria-label="排序方向">
+          <option value="desc">降序</option>
+          <option value="asc">升序</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" id="adminApplyFilter">刷新</button>
+      </div>
+
+      <!-- Phase 2F: Pagination -->
+      <div class="admin-pagination" id="adminPagination" style="display:none">
+        <button class="btn btn-ghost btn-sm" id="adminPagePrev">上一页</button>
+        <span class="admin-page-info" id="adminPageInfo">第 1 页 / 共 1 页</span>
+        <button class="btn btn-ghost btn-sm" id="adminPageNext">下一页</button>
+      </div>
+
       <div class="admin-queue" id="adminQueue" style="display:none" aria-live="polite">
         <!-- Populated by JS -->
       </div>

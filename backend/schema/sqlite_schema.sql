@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS review_logs (
     identifiable_person_risk   INTEGER DEFAULT 0,
     quality_notes              TEXT,
     suggestions_json          TEXT,
+    redaction_summary         TEXT,
     reviewer_type             TEXT NOT NULL CHECK (
         reviewer_type IN ('ai_rule_engine', 'ai_moderation_api', 'human_admin')
     ),

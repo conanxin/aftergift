@@ -1131,17 +1131,55 @@
       }
     }
 
-    // ── Phase 2D: Admin Review Panel ──────────────────────────────────────────
+    // ── Phase 2F: Admin Review Panel ──────────────────────────────────────────
 
     var _adminToken = null;
+    var _adminCurrentTab = 'reviews';
+    var _adminCurrentPage = 1;
+    var _adminTotalPages = 1;
 
     function initAdminPanel() {
       if (!window.__AF_ADMIN) return;
       var section = document.getElementById('adminReviewSection');
       if (!section) return;
       section.style.display = '';
+
       var loadBtn = document.getElementById('adminLoadQueue');
       if (loadBtn) loadBtn.addEventListener('click', loadAdminQueue);
+
+      // Tab switching
+      document.querySelectorAll('.admin-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.admin-tab').forEach(function(t) {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+          _adminCurrentTab = tab.getAttribute('data-tab');
+          _adminCurrentPage = 1;
+          loadAdminTab();
+        });
+      });
+
+      // Filter apply
+      var filterBtn = document.getElementById('adminApplyFilter');
+      if (filterBtn) filterBtn.addEventListener('click', function() {
+        _adminCurrentPage = 1;
+        loadAdminTab();
+      });
+
+      // Pagination
+      var prevBtn = document.getElementById('adminPagePrev');
+      var nextBtn = document.getElementById('adminPageNext');
+      if (prevBtn) prevBtn.addEventListener('click', function() {
+        if (_adminCurrentPage > 1) { _adminCurrentPage--; loadAdminTab(); }
+      });
+      if (nextBtn) nextBtn.addEventListener('click', function() {
+        if (_adminCurrentPage < _adminTotalPages) { _adminCurrentPage++; loadAdminTab(); }
+      });
+
+      // Auto-load if token stored
       try {
         var stored = sessionStorage.getItem('aftergift_admin_token');
         if (stored) {
@@ -1159,17 +1197,107 @@
       if (!token) { showToast('请输入 Admin Token'); return; }
       _adminToken = token;
       try { sessionStorage.setItem('aftergift_admin_token', token); } catch (e) {}
-      var queue = document.getElementById('adminQueue');
+
       var area = document.getElementById('adminTokenArea');
-      if (queue) { queue.innerHTML = '<div class="admin-queue-loading">加载中…</div>'; queue.style.display = ''; }
+      var tabs = document.getElementById('adminTabs');
+      var filterBar = document.getElementById('adminFilterBar');
+      var pagination = document.getElementById('adminPagination');
+
       if (area) area.style.display = 'none';
-      adminFetchGet('/api/admin/reviews?page=1', token).then(function(data) {
-        renderAdminQueue(data);
-      }).catch(function(err) {
-        if (queue) queue.style.display = 'none';
-        if (area) area.style.display = '';
-        showToast('加载失败：' + (err.message || '未知错误'));
-      });
+      if (tabs) tabs.style.display = '';
+      if (filterBar) filterBar.style.display = '';
+      if (pagination) pagination.style.display = '';
+
+      _adminCurrentPage = 1;
+      loadAdminTab();
+    }
+
+    function getAdminFilterParams() {
+      var status = document.getElementById('adminFilterStatus');
+      var risk = document.getElementById('adminFilterRisk');
+      var provider = document.getElementById('adminFilterProvider');
+      var sort = document.getElementById('adminFilterSort');
+      var order = document.getElementById('adminFilterOrder');
+      return {
+        status: status && status.value ? status.value : undefined,
+        risk_level: risk && risk.value ? risk.value : undefined,
+        provider: provider && provider.value ? provider.value : undefined,
+        sort: sort && sort.value ? sort.value : 'created_at',
+        order: order && order.value ? order.value : 'desc',
+        page: _adminCurrentPage,
+        limit: 10
+      };
+    }
+
+    function loadAdminTab() {
+      var queue = document.getElementById('adminQueue');
+      if (queue) { queue.innerHTML = '<div class="admin-queue-loading">加载中…</div>'; queue.style.display = ''; }
+      document.getElementById('adminQueueEmpty').style.display = 'none';
+
+      if (_adminCurrentTab === 'reviews') {
+        loadAdminReviews();
+      } else if (_adminCurrentTab === 'reports') {
+        loadAdminReports();
+      } else if (_adminCurrentTab === 'actions') {
+        loadAdminActions();
+      }
+    }
+
+    function loadAdminReviews() {
+      var params = getAdminFilterParams();
+      if (window.AftergiftAPI && window.AftergiftAPI.getAdminReviews) {
+        window.AftergiftAPI.getAdminReviews(params, _adminToken).then(function(data) {
+          renderAdminReviews(data);
+        }).catch(function(err) {
+          showAdminError(err);
+        });
+      } else {
+        // Fallback to direct fetch
+        var qs = new URLSearchParams();
+        Object.keys(params).forEach(function(k) { if (params[k] !== undefined) qs.set(k, String(params[k])); });
+        adminFetchGet('/api/admin/reviews?' + qs.toString(), _adminToken).then(renderAdminReviews).catch(showAdminError);
+      }
+    }
+
+    function loadAdminReports() {
+      var params = { page: _adminCurrentPage, limit: 10, sort: 'created_at', order: 'desc' };
+      if (window.AftergiftAPI && window.AftergiftAPI.getAdminReports) {
+        window.AftergiftAPI.getAdminReports(params, _adminToken).then(function(data) {
+          renderAdminReports(data);
+        }).catch(showAdminError);
+      } else {
+        var qs = new URLSearchParams();
+        Object.keys(params).forEach(function(k) { qs.set(k, String(params[k])); });
+        adminFetchGet('/api/admin/reports?' + qs.toString(), _adminToken).then(renderAdminReports).catch(showAdminError);
+      }
+    }
+
+    function loadAdminActions() {
+      var params = { page: _adminCurrentPage, limit: 10 };
+      if (window.AftergiftAPI && window.AftergiftAPI.getAdminActions) {
+        window.AftergiftAPI.getAdminActions(params, _adminToken).then(function(data) {
+          renderAdminActions(data);
+        }).catch(showAdminError);
+      } else {
+        var qs = new URLSearchParams();
+        Object.keys(params).forEach(function(k) { qs.set(k, String(params[k])); });
+        adminFetchGet('/api/admin/actions?' + qs.toString(), _adminToken).then(renderAdminActions).catch(showAdminError);
+      }
+    }
+
+    function showAdminError(err) {
+      var queue = document.getElementById('adminQueue');
+      if (queue) queue.innerHTML = '<div class="admin-queue-loading">加载失败：' + escHtml(err.message || '未知错误') + '</div>';
+    }
+
+    function updatePagination(data) {
+      _adminTotalPages = data.total_pages || 1;
+      var info = document.getElementById('adminPageInfo');
+      var prev = document.getElementById('adminPagePrev');
+      var next = document.getElementById('adminPageNext');
+      if (info) info.textContent = '第 ' + data.page + ' 页 / 共 ' + data.total_pages + ' 页';
+      if (prev) prev.disabled = data.page <= 1;
+      if (next) next.disabled = data.page >= data.total_pages;
     }
 
     function adminFetchGet(path, token) {
@@ -1183,11 +1311,11 @@
       });
     }
 
-    function adminFetchPost(path, token, decision) {
+    function adminFetchPost(path, token, payload) {
       return fetch('http://127.0.0.1:8091' + path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
-        body: JSON.stringify({ decision: decision })
+        body: JSON.stringify(payload)
       }).then(function(r) {
         return r.json().then(function(json) {
           if (!r.ok) throw new Error((json && json.detail) || 'Request failed (' + r.status + ')');
@@ -1196,7 +1324,8 @@
       });
     }
 
-    function renderAdminQueue(data) {
+    // ── Render Reviews ──
+    function renderAdminReviews(data) {
       var queue = document.getElementById('adminQueue');
       var empty = document.getElementById('adminQueueEmpty');
       if (!queue) return;
@@ -1204,16 +1333,18 @@
       var total = (data && data.total) ? data.total : 0;
       if (items.length === 0) {
         queue.style.display = 'none';
-        if (empty) { empty.style.display = ''; return; }
+        if (empty) { empty.style.display = ''; empty.querySelector('p').textContent = '当前没有符合条件的审核记录。'; }
+        updatePagination({ page: _adminCurrentPage, total_pages: 1 });
+        return;
       }
       if (empty) empty.style.display = 'none';
       queue.style.display = '';
-      queue.innerHTML = '<div class="admin-queue-count">共 ' + total + ' 条待审</div>';
+      queue.innerHTML = '<div class="admin-queue-count">共 ' + total + ' 条</div>';
       items.forEach(function(item) {
         var riskLabel = { safe: '安全', caution: '注意', high_risk: '高风险' };
         var riskClass = { safe: 'risk-safe', caution: 'risk-caution', high_risk: 'risk-high' };
         var risk = item.risk_level || 'safe';
-        var statusLabel = { pending_review: '待审', needs_edit: '需修改' };
+        var statusLabel = { pending_review: '待审', needs_edit: '需修改', published: '已发布', rejected: '已拒绝', archived: '已归档' };
         var st = item.status || 'pending_review';
         var suggestions = (item.review_suggestions || []).map(function(s) {
           var txt = typeof s === 'string' ? s : (s.suggestion || JSON.stringify(s));
@@ -1222,13 +1353,16 @@
         var card = document.createElement('div');
         card.className = 'admin-review-item';
         card.setAttribute('data-gift-id', item.gift_id || '');
+        var providerBadge = item.provider ? '<span class="admin-provider-badge">' + escHtml(item.provider) + '</span>' : '';
+        var redactionBadge = item.redaction_summary ? '<span class="admin-redaction-badge" title="' + escHtml(JSON.stringify(item.redaction_summary)) + '">已脱敏</span>' : '';
         var badges = '<span class="admin-risk-badge ' + escHtml(riskClass[risk] || 'risk-safe') + '">' + escHtml(riskLabel[risk] || risk) + '</span>' +
           '<span class="admin-status-badge">' + escHtml(statusLabel[st] || st) + '</span>' +
-          '<span class="admin-emotion-badge">' + escHtml(item.emotion || '') + '</span>';
+          '<span class="admin-emotion-badge">' + escHtml(item.emotion || '') + '</span>' +
+          providerBadge + redactionBadge;
         var meta = '<div class="admin-review-meta"><span>' + escHtml(item.category || '') + '</span><span>' + escHtml(item.relation_label || item.relation_type || '') + '</span><span>' + escHtml(item.action_type || '') + '</span></div>';
         var sugBlock = suggestions ? '<div class="admin-review-suggestions"><div class="admin-review-story-label">审核建议</div><ul>' + suggestions + '</ul></div>' : '';
         var aiNotes = item.ai_review_notes ? '<div class="admin-review-ai-notes">' + escHtml(item.ai_review_notes) + '</div>' : '';
-        var btnId = 'btn-' + (item.gift_id || Math.random());
+        var noteId = 'note-' + (item.gift_id || Math.random());
         card.innerHTML =
           '<div class="admin-review-header">' +
             '<div class="admin-review-title">' + escHtml(item.title || '') + '</div>' +
@@ -1240,10 +1374,15 @@
           '<div class="admin-review-story-label">完整故事</div>' +
           '<div class="admin-review-story-full">' + escHtml(item.full_story || '') + '</div>' +
           sugBlock + aiNotes +
+          '<div class="admin-review-note-row">' +
+            '<label for="' + noteId + '" class="admin-note-label">审核备注</label>' +
+            '<textarea id="' + noteId + '" class="admin-note-input" rows="2" placeholder="可选：给发布者的说明或内部备注"></textarea>' +
+          '</div>' +
           '<div class="admin-review-actions">' +
-            '<button class="btn btn-primary btn-sm admin-decision-btn" data-action="approve" data-gift-id="' + escHtml(item.gift_id || '') + '">批准公开</button>' +
-            '<button class="btn btn-secondary btn-sm admin-decision-btn" data-action="needs_edit" data-gift-id="' + escHtml(item.gift_id || '') + '">退回修改</button>' +
-            '<button class="btn btn-ghost btn-sm admin-decision-btn admin-reject-btn" data-action="reject" data-gift-id="' + escHtml(item.gift_id || '') + '">拒绝发布</button>' +
+            '<button class="btn btn-primary btn-sm admin-decision-btn" data-action="approve" data-gift-id="' + escHtml(item.gift_id || '') + '" data-note-id="' + noteId + '">批准公开</button>' +
+            '<button class="btn btn-secondary btn-sm admin-decision-btn" data-action="needs_edit" data-gift-id="' + escHtml(item.gift_id || '') + '" data-note-id="' + noteId + '">退回修改</button>' +
+            '<button class="btn btn-ghost btn-sm admin-decision-btn admin-reject-btn" data-action="reject" data-gift-id="' + escHtml(item.gift_id || '') + '" data-note-id="' + noteId + '">拒绝发布</button>' +
+            '<button class="btn btn-ghost btn-sm admin-logs-btn" data-gift-id="' + escHtml(item.gift_id || '') + '">查看日志</button>' +
           '</div>' +
           '<div class="admin-decision-feedback"></div>';
         queue.appendChild(card);
@@ -1252,24 +1391,34 @@
         btn.addEventListener('click', function() {
           var action = btn.getAttribute('data-action');
           var giftId = btn.getAttribute('data-gift-id');
-          submitAdminDecision(giftId, action, btn);
+          var noteId = btn.getAttribute('data-note-id');
+          var note = noteId ? (document.getElementById(noteId) || {}).value || '' : '';
+          submitAdminDecision(giftId, action, note, btn);
         });
       });
+      queue.querySelectorAll('.admin-logs-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var giftId = btn.getAttribute('data-gift-id');
+          loadAdminReviewLogs(giftId);
+        });
+      });
+      updatePagination(data);
     }
 
-    function submitAdminDecision(giftId, decision, btnEl) {
+    function submitAdminDecision(giftId, decision, note, btnEl) {
       var label = { approve: '批准', needs_edit: '退回修改', reject: '拒绝' };
       if (!confirm('确认要' + (label[decision] || decision) + '这个故事吗？')) return;
       btnEl.disabled = true;
       btnEl.textContent = '处理中…';
-      adminFetchPost('/api/admin/reviews/' + encodeURIComponent(giftId) + '/decision', _adminToken, decision).then(function(data) {
+      var payload = { decision: decision, note: note };
+      adminFetchPost('/api/admin/reviews/' + encodeURIComponent(giftId) + '/decision', _adminToken, payload).then(function(data) {
         var feedback = btnEl.parentNode.nextElementSibling;
         if (feedback && feedback.className === 'admin-decision-feedback') {
           feedback.innerHTML = '<span class="admin-decision-ok">&#10003; ' + escHtml(label[decision]) + '成功（' + escHtml(data.new_status || '') + '）</span>';
         }
         btnEl.textContent = '已处理';
         btnEl.disabled = true;
-        setTimeout(loadAdminQueue, 1500);
+        setTimeout(loadAdminTab, 1500);
       }).catch(function(err) {
         var feedback = btnEl.parentNode.nextElementSibling;
         if (feedback && feedback.className === 'admin-decision-feedback') {
@@ -1278,6 +1427,149 @@
         btnEl.disabled = false;
         btnEl.textContent = label[decision] || decision;
       });
+    }
+
+    function loadAdminReviewLogs(giftId) {
+      if (window.AftergiftAPI && window.AftergiftAPI.getAdminReviewLogs) {
+        window.AftergiftAPI.getAdminReviewLogs(giftId, _adminToken).then(function(data) {
+          showAdminLogsModal(giftId, data.items || []);
+        }).catch(function(err) { showToast('加载日志失败：' + (err.message || '')); });
+      } else {
+        adminFetchGet('/api/admin/reviews/' + encodeURIComponent(giftId) + '/logs', _adminToken).then(function(data) {
+          showAdminLogsModal(giftId, data.items || []);
+        }).catch(function(err) { showToast('加载日志失败：' + (err.message || '')); });
+      }
+    }
+
+    function showAdminLogsModal(giftId, items) {
+      var body = '';
+      if (items.length === 0) {
+        body = '<p>暂无审核日志。</p>';
+      } else {
+        body = '<div class="admin-logs-list">';
+        items.forEach(function(log) {
+          body += '<div class="admin-log-item">' +
+            '<div class="admin-log-header"><span class="admin-log-risk">' + escHtml(log.risk_level) + '</span><span class="admin-log-provider">' + escHtml(log.reviewer_type) + '</span><span class="admin-log-time">' + escHtml(log.created_at) + '</span></div>' +
+            '<div class="admin-log-details">身份风险:' + (log.identity_risk || 0) + ' | 攻击风险:' + (log.attack_risk || 0) + ' | 可识别风险:' + (log.identifiable_person_risk || 0) + '</div>' +
+            (log.redaction_summary ? '<div class="admin-log-redaction">脱敏: ' + escHtml(JSON.stringify(log.redaction_summary)) + '</div>' : '') +
+            '</div>';
+        });
+        body += '</div>';
+      }
+      modalBody.innerHTML = '<div class="modal-gift-header"><h2 class="modal-gift-title">审核日志 #' + escHtml(giftId.slice(0, 8)) + '</h2></div><div class="modal-divider"></div>' + body;
+      modalOverlay.classList.add('open');
+      modalOverlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // ── Render Reports ──
+    function renderAdminReports(data) {
+      var queue = document.getElementById('adminQueue');
+      var empty = document.getElementById('adminQueueEmpty');
+      if (!queue) return;
+      var items = (data && data.items) ? data.items : [];
+      var total = (data && data.total) ? data.total : 0;
+      if (items.length === 0) {
+        queue.style.display = 'none';
+        if (empty) { empty.style.display = ''; empty.querySelector('p').textContent = '当前没有举报记录。'; }
+        updatePagination({ page: _adminCurrentPage, total_pages: 1 });
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      queue.style.display = '';
+      queue.innerHTML = '<div class="admin-queue-count">共 ' + total + ' 条举报</div>';
+      items.forEach(function(item) {
+        var statusLabel = { pending: '待处理', reviewing: '审核中', resolved_dismissed: '已驳回', resolved_action_taken: '已处理' };
+        var st = item.status || 'pending';
+        var card = document.createElement('div');
+        card.className = 'admin-review-item';
+        var noteId = 'rnote-' + (item.report_id || Math.random());
+        card.innerHTML =
+          '<div class="admin-review-header">' +
+            '<div class="admin-review-title">' + escHtml(item.gift_title || '礼物') + '</div>' +
+            '<div class="admin-review-badges"><span class="admin-status-badge">' + escHtml(statusLabel[st] || st) + '</span><span class="admin-emotion-badge">' + escHtml(item.reason || '') + '</span></div>' +
+          '</div>' +
+          '<div class="admin-review-meta"><span>举报者: ' + escHtml(item.reporter_user_id || '匿名') + '</span><span>礼物状态: ' + escHtml(item.current_gift_status || '') + '</span></div>' +
+          '<div class="admin-review-story-label">举报详情</div>' +
+          '<div class="admin-review-story-excerpt">' + escHtml(item.detail || '无详情') + '</div>' +
+          '<div class="admin-review-note-row">' +
+            '<label for="' + noteId + '" class="admin-note-label">处理备注</label>' +
+            '<textarea id="' + noteId + '" class="admin-note-input" rows="2" placeholder="可选：处理说明"></textarea>' +
+          '</div>' +
+          '<div class="admin-review-actions">' +
+            '<button class="btn btn-primary btn-sm admin-report-btn" data-action="dismiss" data-report-id="' + escHtml(item.report_id || '') + '" data-note-id="' + noteId + '">驳回</button>' +
+            '<button class="btn btn-secondary btn-sm admin-report-btn" data-action="needs_review" data-report-id="' + escHtml(item.report_id || '') + '" data-note-id="' + noteId + '">需审核</button>' +
+            '<button class="btn btn-ghost btn-sm admin-report-btn admin-reject-btn" data-action="take_action" data-report-id="' + escHtml(item.report_id || '') + '" data-note-id="' + noteId + '">采取行动</button>' +
+          '</div>' +
+          '<div class="admin-decision-feedback"></div>';
+        queue.appendChild(card);
+      });
+      queue.querySelectorAll('.admin-report-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var action = btn.getAttribute('data-action');
+          var reportId = btn.getAttribute('data-report-id');
+          var noteId = btn.getAttribute('data-note-id');
+          var note = noteId ? (document.getElementById(noteId) || {}).value || '' : '';
+          submitReportDecision(reportId, action, note, btn);
+        });
+      });
+      updatePagination(data);
+    }
+
+    function submitReportDecision(reportId, decision, note, btnEl) {
+      var label = { dismiss: '驳回', needs_review: '需审核', take_action: '采取行动' };
+      if (!confirm('确认要' + (label[decision] || decision) + '这条举报吗？')) return;
+      btnEl.disabled = true;
+      btnEl.textContent = '处理中…';
+      var payload = { decision: decision, note: note };
+      adminFetchPost('/api/admin/reports/' + encodeURIComponent(reportId) + '/decision', _adminToken, payload).then(function(data) {
+        var feedback = btnEl.parentNode.nextElementSibling;
+        if (feedback && feedback.className === 'admin-decision-feedback') {
+          feedback.innerHTML = '<span class="admin-decision-ok">&#10003; ' + escHtml(label[decision]) + '成功</span>';
+        }
+        btnEl.textContent = '已处理';
+        btnEl.disabled = true;
+        setTimeout(loadAdminTab, 1500);
+      }).catch(function(err) {
+        var feedback = btnEl.parentNode.nextElementSibling;
+        if (feedback && feedback.className === 'admin-decision-feedback') {
+          feedback.innerHTML = '<span class="admin-decision-err">&#10007; 失败：' + escHtml(err.message || '未知错误') + '</span>';
+        }
+        btnEl.disabled = false;
+        btnEl.textContent = label[decision] || decision;
+      });
+    }
+
+    // ── Render Actions ──
+    function renderAdminActions(data) {
+      var queue = document.getElementById('adminQueue');
+      var empty = document.getElementById('adminQueueEmpty');
+      if (!queue) return;
+      var items = (data && data.items) ? data.items : [];
+      var total = (data && data.total) ? data.total : 0;
+      if (items.length === 0) {
+        queue.style.display = 'none';
+        if (empty) { empty.style.display = ''; empty.querySelector('p').textContent = '当前没有操作记录。'; }
+        updatePagination({ page: _adminCurrentPage, total_pages: 1 });
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      queue.style.display = '';
+      queue.innerHTML = '<div class="admin-queue-count">共 ' + total + ' 条操作记录</div>';
+      items.forEach(function(item) {
+        var actionLabel = { approve: '批准', reject: '拒绝', needs_edit: '退回修改', suspend_user: '封禁用户', dismiss_report: '驳回举报', take_action: '采取行动' };
+        var card = document.createElement('div');
+        card.className = 'admin-review-item';
+        card.innerHTML =
+          '<div class="admin-review-header">' +
+            '<div class="admin-review-title">' + escHtml(actionLabel[item.action] || item.action) + ' — ' + escHtml(item.target_type) + '</div>' +
+            '<div class="admin-review-badges"><span class="admin-status-badge">' + escHtml(item.target_id ? item.target_id.slice(0, 8) : '') + '</span></div>' +
+          '</div>' +
+          '<div class="admin-review-meta"><span>管理员: ' + escHtml(item.admin_id || '') + '</span><span>' + escHtml(item.created_at || '') + '</span></div>' +
+          (item.note ? '<div class="admin-review-story-excerpt">' + escHtml(item.note) + '</div>' : '');
+        queue.appendChild(card);
+      });
+      updatePagination(data);
     }
 
     // ── Phase 2D: Auth Gates ─────────────────────────────────────────────────
