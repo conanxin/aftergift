@@ -6,5 +6,8 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.6.0
 python-dotenv>=1.0.0
 
+# Auth (Phase 2E+)
+PyJWT>=2.8.0
+
 # Development-only (optional, not required for syntax check)
 # pytest>=8.0.0

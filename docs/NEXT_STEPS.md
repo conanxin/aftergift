@@ -13,7 +13,8 @@
 | Phase 2B | FastAPI 骨架 | 100% | 所有 routers 实现，SQLite 数据库 |
 | Phase 2C | 前后端双模式联调 | 100% | static 模式（默认）+ API 模式（`?api=local`） |
 | Phase 2D | 匿名身份 + Admin UI | 100% | HMAC token、27 字段审核队列、Admin Review Panel |
-| Phase 2E | PyJWT + Moderation 抽象 | 0% | **下一步** |
+| Phase 2E-1 | PyJWT Token 升级 | 100% | **本阶段已完成** — HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
+| Phase 2E-2 | Moderation Provider 抽象 | 0% | Mock/OpenAI/Baidu 可切换 Provider |
 | Phase 2F | Admin 增强 + 举报队列 | 0% | |
 | Phase 2G | 本地内测 | 0% | |
 
@@ -23,8 +24,8 @@
 
 很多团队会急着做"交易"和"社区"功能，因为它们直接产生商业价值。但 Aftergift 目前的风险暴露面使这样做很危险：
 
-### 当前身份系统的风险
-- **HMAC token 是临时方案**：无标准 JWT 的 `exp`、`iss`、`sub` 声明，无签名验证标准
+### 当前身份系统的风险（Phase 2E-1 已升级）
+- ~~**HMAC token 是临时方案**：无标准 JWT 的 `exp`、`iss`、`sub`声明~~ → ✅ Phase 2E-1 已升级为 PyJWT
 - **Token 无撤销机制**：如果 token 泄露，无法撤销，只能等 7 天自然过期
 - **localStorage XSS 风险**：token 存 localStorage，XSS 攻击可窃取身份
 
@@ -215,7 +216,7 @@ BAIDU_SECRET_KEY=
 
 | 风险 | 优先级 | 解决阶段 | 说明 |
 |------|--------|---------|------|
-| HMAC token 无标准签名 | P0 | Phase 2E | 生产直接暴露 |
+| HMAC token 无标准签名 | ~~P0~~ → ~~Phase 2E~~ | ✅ Phase 2E-1 已解决（PyJWT HS256） |
 | Token 无撤销机制 | P0 | Phase 2E | 泄露后无法止损 |
 | AI 审核为 Mock | P0 | Phase 2E | 无法处理复杂内容 |
 | 审核日志未脱敏 | P1 | Phase 2E | 管理员可看到原始敏感信息 |

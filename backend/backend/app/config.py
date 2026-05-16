@@ -19,6 +19,13 @@ DB_PATH: str = os.getenv("AFTERGIFT_DB_PATH", "./aftergift_dev.db")
 ENABLE_REAL_AI_REVIEW: bool = os.getenv("AFTERGIFT_ENABLE_REAL_AI_REVIEW", "false").lower() in ("true", "1", "yes")
 ADMIN_TOKEN: str = os.getenv("AFTERGIFT_ADMIN_TOKEN", "change-me-dev-only")
 
+# ── Phase 2E: JWT Auth ────────────────────────────────────────────────────────
+# Replace AFTERGIFT_JWT_SECRET with a strong random secret in production.
+# Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+JWT_SECRET: str = os.getenv("AFTERGIFT_JWT_SECRET", "replace-this-dev-secret")
+JWT_ALGORITHM: str = os.getenv("AFTERGIFT_JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_TTL_SECONDS: int = int(os.getenv("AFTERGIFT_ACCESS_TOKEN_TTL_SECONDS", "604800"))
+
 # ── Derived flags ───────────────────────────────────────────────────────────
 
 IS_DEV: bool = ENV == "development"

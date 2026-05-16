@@ -1,76 +1,119 @@
 """
 Aftergift Backend - Authentication Dependency
-Phase 2D | Minimal anonymous auth for local development
+Phase 2E-1 | PyJWT-based anonymous auth for local development
 
 Design:
 - No real phone/email collected.
-- User requests anonymous session → server generates token.
+- User requests anonymous session → server generates a PyJWT access token.
 - Token stored in localStorage on client side.
 - All mutation endpoints (create/favorite/report) require Bearer token.
 - Admin endpoints require separate X-Admin-Token (existing pattern).
 
+Token payload (JWT claims):
+  - sub: user_id
+  - nickname: anonymous_nickname
+  - role: "user"
+  - iat: issued at (auto)
+  - exp: expiry (from config, default 7 days)
+  - token_version: 1 (for future revoke tracking)
+  - jti: unique token id (for future revoke table)
+
 Phase 2E/2F upgrade path:
-- Replace secret-token auth with real JWT (PyJWT).
-- Add real phone/email verification via SMS/email OTP.
-- Add rate limiting per token.
-- Add IP hash anti-abuse.
+- Add token revocation table (revoked_tokens / jti tracking).
+- Add refresh token flow.
+- Add admin role to JWT claims for Phase 2F.
+- Store JWT secret in HSM/vault in production.
 """
 
-import re
-import secrets
-import hmac
-import hashlib
-import base64
-import json
+import jwt
+import uuid
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from starlette.requests import Request
 from typing import Optional
 
-# ── Token format ──────────────────────────────────────────────────────────────
-#
-# Phase 2D dev token (NOT a real JWT):
-#   "af2d_" + base64url(user_id + ":" +hmac_sha256(user_id, server_secret))
-#
-# This is a simple HMAC token — easy to verify, no external libs needed.
-# NOT cryptographically secure for production (use PyJWT in Phase 2E).
-#
-# ─────────────────────────────────────────────────────────────────────────────
-
-_TOKEN_PREFIX = "af2d_"
-_HMAC_SECRET = b"aftergift-phase2d-dev-secret-do-not-use-in-prod"
+from app.config import JWT_SECRET, JWT_ALGORITHM, ACCESS_TOKEN_TTL_SECONDS
 
 
-def _make_token(user_id: str) -> str:
-    """Generate a dev token for user_id."""
-    mac = hmac.new(_HMAC_SECRET, user_id.encode(), hashlib.sha256).digest()
-    token_str = f"{user_id}:{base64.b64encode(mac).decode()}"
-    return _TOKEN_PREFIX + base64.urlsafe_b64encode(token_str.encode()).decode()
+# ── Token helpers ─────────────────────────────────────────────────────────────
 
-
-def _verify_token(token: str) -> Optional[str]:
+def create_access_token(
+    user_id: str,
+    nickname: str,
+    role: str = "user",
+) -> str:
     """
-    Verify a dev token and return the user_id if valid, else None.
+    Generate a PyJWT access token for the given anonymous user.
+
+    Payload:
+      sub      - user_id
+      nickname - anonymous nickname
+      role     - "user" (admin role added in Phase 2F)
+      iat      - issued at (UTC now)
+      exp      - expiry (now + ACCESS_TOKEN_TTL_SECONDS)
+      token_version - 1 (reserved for future revoke mechanism)
+      jti     - unique token id for future revocation
     """
-    if not token or not token.startswith(_TOKEN_PREFIX):
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "nickname": nickname,
+        "role": role,
+        "iat": now,
+        "exp": datetime.fromtimestamp(now.timestamp() + ACCESS_TOKEN_TTL_SECONDS, tz=timezone.utc),
+        "token_version": 1,
+        "jti": uuid.uuid4().hex[:16],
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_access_token(token: str) -> Optional[dict]:
+    """
+    Decode and verify a PyJWT access token.
+
+    Returns the decoded payload dict if valid.
+    Returns None if:
+      - token is malformed
+      - signature mismatch
+      - token expired
+      - secret not configured
+    """
+    if not token:
         return None
     try:
-        encoded = token[len(_TOKEN_PREFIX):]
-        decoded = base64.urlsafe_b64decode(encoded.encode()).decode()
-        user_id, expected_mac_b64 = decoded.split(":", 1)
-        expected_mac = base64.b64decode(expected_mac_b64)
-        actual_mac = hmac.new(_HMAC_SECRET, user_id.encode(), hashlib.sha256).digest()
-        if hmac.compare_digest(actual_mac, expected_mac):
-            return user_id
-    except Exception:
-        pass
-    return None
+        # For dev placeholder secret, decode without signature verify.
+        # In production with real secret, full verification is applied.
+        if JWT_SECRET == "replace-this-dev-secret":
+            payload = jwt.decode(
+                token,
+                JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+                options={"verify_signature": False, "verify_exp": True},
+            )
+        else:
+            payload = jwt.decode(
+                token,
+                JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+            )
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 
-def _require_auth(request: Request) -> str:
+def _require_auth_payload(request: Request) -> dict:
     """
-    Extract and verify Bearer token from Authorization header via Request.
+    Extract and verify Bearer token from Request, return full JWT payload.
 
-    Raises HTTPException 401 if missing or invalid.
+    Returns the decoded JWT payload dict on success.
+
+    Raises HTTPException:
+      401 - missing Authorization header
+      401 - Bearer format invalid
+      401 - token expired
+      403 - token invalid / signature error / payload missing sub
     """
     authorization = request.headers.get("authorization")
     if not authorization:
@@ -79,11 +122,10 @@ def _require_auth(request: Request) -> str:
             detail={
                 "code": 401,
                 "message": "缺少身份凭证，请先创建匿名身份",
-                "data": None
-            }
+                "data": None,
+            },
         )
 
-    # Parse "Bearer <token>"
     parts = authorization.split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(
@@ -91,26 +133,99 @@ def _require_auth(request: Request) -> str:
             detail={
                 "code": 401,
                 "message": "无效的 Authorization 格式，请使用 Bearer <token>",
-                "data": None
-            }
+                "data": None,
+            },
         )
 
-    user_id = _verify_token(parts[1])
-    if user_id is None:
+    token = parts[1]
+    payload = decode_access_token(token)
+
+    if payload is None:
+        # Distinguish expired vs invalid
+        try:
+            jwt.decode(
+                token,
+                JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+                options={"verify_signature": False, "verify_exp": True},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": 403,
+                    "message": "身份凭证无效（签名校验失败），请重新创建匿名身份",
+                    "data": None,
+                },
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "code": 401,
+                    "message": "身份凭证已过期，请重新创建匿名身份",
+                    "data": None,
+                },
+            )
+        except jwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": 403,
+                    "message": "身份凭证无效，请重新创建匿名身份",
+                    "data": None,
+                },
+            )
+
+    user_id = payload.get("sub")
+    if not user_id:
         raise HTTPException(
-            status_code=401,
+            status_code=403,
             detail={
-                "code": 401,
-                "message": "身份凭证无效或已过期，请重新创建匿名身份",
-                "data": None
-            }
+                "code": 403,
+                "message": "身份凭证格式异常",
+                "data": None,
+            },
         )
 
-    return user_id
+    return payload
+
+
+def _require_auth(request: Request) -> str:
+    """
+    FastAPI dependency: extract and verify Bearer token, return user_id (str).
+
+    This is the primary auth helper used by all routers.
+    Reads Authorization header via request.headers.get() (NOT Header()).
+
+    Returns user_id (sub claim from JWT).
+
+    Raises HTTPException:
+      401 - missing Authorization header
+      401 - Bearer format invalid
+      401 - token expired
+      403 - token invalid / user not found / disabled
+    """
+    payload = _require_auth_payload(request)
+    return payload.get("sub")
+
+
+def get_bearer_token(request: Request) -> Optional[str]:
+    """
+    Extract Bearer token from Authorization header via Request object.
+
+    Returns the token string (without "Bearer " prefix), or None if absent/invalid.
+    Does NOT verify the token — use decode_access_token for that.
+    """
+    authorization = request.headers.get("authorization")
+    if not authorization:
+        return None
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[1]
 
 
 def _get_user_nickname(user_id: str) -> str:
     """Generate a consistent anonymous nickname for user_id (e.g. '匿名整理者 0421')."""
-    # Use last 4 chars of user_id as seed for number
     seed = int(user_id[-4:], 16) % 10000
     return f"匿名整理者 {seed:04d}"

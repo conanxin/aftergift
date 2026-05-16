@@ -1,16 +1,30 @@
-# AUTH_DESIGN.md — Aftergift Phase 2D 匿名认证设计
+# AUTH_DESIGN.md — Aftergift Phase 2E-1 认证设计
 
-## 1. Phase 2D 目标
+> 版本：Phase 2E-1 | 更新日期：2026-05-16
 
-在不收集用户真实手机号、邮箱的前提下，为每个匿名用户提供唯一身份标识，
-使所有用户操作（发布礼物、收藏、举报）可被关联至同一身份，同时防止未登录用户访问受保护接口。
+## 1. Phase 2D → Phase 2E-1 升级说明
 
-## 2. 为什么不用真实手机号 / 邮箱
+Phase 2D 使用自定义 HMAC token（`af2d_` 前缀 + base64url HMAC-SHA256），Phase 2E-1 已升级为行业标准 **PyJWT HS256**。
 
-- Aftergift 处理的是关系结束后难以面对的礼物，用户对隐私极度敏感
-- 真实身份会破坏产品的"匿名叙述"核心价值
-- 减少数据收集，降低平台责任和隐私合规成本
-- Phase 2E 考虑接入第三方 OAuth，但非强制
+**升级原因**：
+- HMAC token 无标准 JWT 声明（`exp`/`iat`/`jti`/`iss`）
+- 无法被标准 JWT 库验证
+- 不利于未来与第三方身份提供商集成
+- Phase 2E-2 Moderation Provider 抽象需要标准 JWT payload 格式
+
+**升级内容**：
+- `PyJWT>=2....` 替换原有 HMAC 签名逻辑
+- Token payload 增加 `sub/role/jti/iat/exp/token_version`
+- 保留匿名身份设计（不收集手机号/邮箱）
+- 保留 localStorage 存储（开发期临时方案）
+
+## 2. 为什么仍是匿名身份
+
+Aftergift 处理关系结束后难以面对的礼物，用户对隐私极度敏感：
+- 不要求真实手机号 / 邮箱
+- 不做 OAuth 第三方登录
+- Phase 2E-2 之后才评估第三方 OAuth 可行性
+- 减少数据收集，降低平台隐私合规成本
 
 ## 3. 认证流程
 
@@ -20,34 +34,30 @@
 POST /api/auth/anonymous
 ```
 
-**请求体**（可选）：可传入 `device_id`（设备指纹）用于去重
-
 **响应**（201）：
 ```json
 {
-  "code": 200,
+  "code": 201,
   "data": {
     "user_id": "user-46f9b6e927e8",
     "anonymous_nickname": "匿名整理者 0216",
-    "access_token": "af2d_dXNlci00NmY5YjZlOTI3ZTg6..."
+    "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyL...lg",
+    "token_type": "Bearer",
+    "expires_in": 604800
   }
 }
 ```
 
-**生成规则**：
+**Token 生成规则**：
 - `user_id`：`user-{uuid4前12位}`
-- `anonymous_nickname`：`匿名整理者 {NNN}`，NNNN 为 4 位随机数
-- `access_token`：长度 89 字符，格式 `af2d_{base64(user_id:hmac_sha256(user_id, SECRET))}`
-
-**存储**：
-- `users` 表：id, anonymous_nickname, created_at, last_active
-- `sessions` 表：id, user_id, token(HASH), created_at, expires_at
+- `anonymous_nickname`：`匿名整理者 {NNNN}`，NNNN 为 4 位随机数
+- `access_token`：PyJWT HS256，payload 包含 `sub/role/jti/iat/exp/token_version`
 
 ### 3.2 验证身份
 
 ```
 GET /api/auth/me
-Authorization: Bearer <access_token>
+Authorization: Bearer ***
 ```
 
 **响应**（200）：
@@ -57,62 +67,54 @@ Authorization: Bearer <access_token>
   "data": {
     "user_id": "user-46f9b6e927e8",
     "anonymous_nickname": "匿名整理者 0216",
-    "status": "active",
-    "created_at": "2026-05-16 06:57:45"
+    "role": "user",
+    "token_version": 1
   }
 }
 ```
 
-**响应**（401，缺少凭证）：
+**响应**（401，缺少 Authorization）：
 ```json
 {"detail": {"code": 401, "message": "缺少身份凭证，请先创建匿名身份", "data": null}}
 ```
 
-**响应**（401，Token 无效或已过期）：
+**响应**（401，Token 过期）：
 ```json
-{"detail": {"code": 401, "message": "身份凭证无效或已过期，请重新创建匿名身份", "data": null}}
+{"detail": {"code": 401, "message": "身份凭证已过期，请重新创建匿名身份", "data": null}}
 ```
 
-## 4. 401 vs 403 语义
-
-- **401 Unauthorized**：缺少 Authorization 头，或 Token 格式/签名不合法
-- **403 Forbidden**：Token 格式正确但无权访问特定资源（暂未使用）
-
-## 5. Token 安全细节
-
-- **前缀**：`af2d_`，便于识别和过滤
-- **不透明**：Token 本身不含用户身份明文，需要 HMAC 验证才能解析
-- **TTL**：7 天（`sessions.expires_at`）
-- **存储**：前端 `localStorage`（可被 XSS 读取），仅存储 token 而非真实身份
-- **风险**：localStorage XSS → 攻击者可冒用该身份发布内容。缓解：内容审核队列。
-
-## 6. 当前不是生产 JWT
-
-Phase 2D Token = HMAC-SHA256 签名，非标准 JWT（无 iat/exp/jti 声明）。
-未来 Phase 2E 升级路径：
-
-```
-当前（Phase 2D）：
-  af2d_{base64(user_id:HMAC-SHA256(user_id, SECRET))}
-
-未来（Phase 2E，可选）：
-  Bearer eyJhbGciOiJIUzI1NiJ9...  ← PyJWT RS256/HS256
-  + Redis token blacklist
-  + refresh token rotation
+**响应**（403，Token 无效/签名错误）：
+```json
+{"detail": {"code": 403, "message": "身份凭证无效", "data": null}}
 ```
 
-## 7. 受保护接口列表
+## 4. Token Payload 结构
 
-| 接口 | 保护方式 |
-|------|---------|
-| `POST /api/gifts` | Bearer Token |
-| `POST /api/gifts/{id}/favorite` | Bearer Token |
-| `DELETE /api/gifts/{id}/favorite` | Bearer Token |
-| `POST /api/gifts/{id}/report` | Bearer Token |
-| `GET /api/admin/reviews` | x-admin-token |
-| `POST /api/admin/reviews/{id}/decision` | x-admin-token |
+| Claim | 类型 | 说明 |
+|-------|------|------|
+| `sub` | string | 用户 ID，即 `user-{uuid12}` |
+| `nickname` | string | 匿名昵称，如 `匿名整理者 0421` |
+| `role` | string | 角色，`user`（当前仅此角色） |
+| `jti` | string | JWT ID（UUID），用于 token 撤销 |
+| `iat` | int | 签发时间（Unix timestamp） |
+| `exp` | int | 过期时间（Unix timestamp，iat + 604800） |
+| `token_version` | int | token 版本号（未来用于强制刷新） |
 
-## 8. 前端 token 管理（api-client.js）
+**Token 类型**：`Bearer`
+**TTL**：604800 秒 = 7 天
+
+## 5. 401 vs 403 语义
+
+| 场景 | HTTP 状态码 | 说明 |
+|------|------------|------|
+| 缺少 `Authorization` 头 | 401 | 未认证 |
+| `Authorization` 非 Bearer 格式 | 401 | 格式异常 |
+| Token 已过期（`exp` 过期） | 401 | 凭证过期 |
+| Token 格式正确但签名错误 | 403 | 凭证无效 |
+| Token 签名正确但用户不存在/已停用 | 403 | 无权访问 |
+| Token jti 已在撤销表中 | 401 | 凭证已撤销 |
+
+## 6. 前端 token 管理（api-client.js）
 
 ```javascript
 getStoredToken()   // localStorage['aftergift_token']
@@ -121,7 +123,22 @@ clearStoredToken() // delete localStorage['aftergift_token']
 authHeader(token)  // { Authorization: 'Bearer ' + token }
 ```
 
-## 9. 数据库表
+**localStorage 仍是临时开发方案**：
+- Phase 3A 会升级为 HttpOnly cookie（防 XSS）
+- 当前 localStorage 仅存 token，不存真实身份
+- JWT 本身不包含可读的个人信息
+
+## 7. 未来计划：token revoke / logout / refresh
+
+Phase 2E-2（Moderation Provider）完成后，可继续做：
+
+1. **`POST /api/auth/logout`**：将 token jti 写入 `revoked_tokens` 表
+2. **Token 版本号**：当用户修改密码或主动注销时，`token_version` 递增，旧 token 全部失效
+3. **Refresh token**：长期会话场景下引入 refresh token rotation
+
+当前 Phase 2E-1 **未实现** revoke/logout/refresh 功能。
+
+## 8. 数据库表
 
 ### users
 | 列 | 类型 | 说明 |
@@ -136,10 +153,10 @@ authHeader(token)  // { Authorization: 'Bearer ' + token }
 |----|------|------|
 | id | TEXT PRIMARY KEY | uuid |
 | user_id | TEXT NOT NULL | FK → users.id |
-| token | TEXT NOT NULL | HASH(af2d_...) |
+| token_hash | TEXT NOT NULL | JWT token jti（哈希存储） |
 | created_at | TEXT | 创建时间 |
 | expires_at | TEXT | 过期时间 |
 
 ---
 
-*文档版本：Phase 2D | 更新日期：2026-05-16*
+*文档版本：Phase 2E-1 | 更新日期：2026-05-16*

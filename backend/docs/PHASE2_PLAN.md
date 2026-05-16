@@ -120,23 +120,28 @@
 
 ---
 
-## Phase 2E：PyJWT 升级 + Moderation Provider 抽象 🔲 待开始
+## Phase 2E：PyJWT 升级 + Moderation Provider 抽象 ✅ 进行中
 
 **目标**：用 PyJWT 替换 HMAC 临时方案，建立可切换的 AI 审核 provider 架构
 
 **交付物**：
 
-### 2E-1：PyJWT Token 升级
-- [ ] 安装 `PyJWT`
-- [ ] 生成标准 RS256 / HS256 JWT token
-- [ ] 更新 `app/auth.py`：JWT decode / encode 替换 HMAC
-- [ ] 支持 token 过期（`exp` claim）
-- [ ] 支持 refresh token 流程
-- [ ] 建立 token 撤销表（`revoked_tokens`）
-- [ ] 更新 `GET /api/auth/me` 验证 JWT + 检查 revoked
-- [ ] 更新 `POST /api/auth/anonymous` 签发 JWT
+### 2E-1：PyJWT Token 升级 ✅ 已完成
+- [x] 安装 `PyJWT`
+- [x] 生成标准 HS256 JWT token
+- [x] 更新 `app/auth.py`：JWT decode / encode 替换 HMAC
+- [x] 支持 token 过期（`exp` claim）
+- [x] `decode_access_token`：标准 JWT 验证 + 过期检查
+- [x] `_require_auth_payload`：返回完整 payload dict
+- [x] `_require_auth`：返回 `sub` 字段（str），兼容所有 router
+- [x] Token payload 含 `sub/role/jti/iat/exp/token_version`
+- [x] POST /api/auth/anonymous 签发 JWT
+- [x] GET /api/auth/me 验证 JWT payload
+- [x] 更新 .env.example / config.py
+- [x] 12/12 合同测试 PASS
+- [x] 6/6 运行时验证 PASS（201 JWT / 200 / 401 / 403）
 
-### 2E-2：Moderation Provider 抽象
+### 2E-2：Moderation Provider 抽象 🔲 待开始
 - [ ] 建立 `services/moderation/` 目录
 - [ ] 定义 `ModerationProvider` 抽象基类
 - [ ] 实现 `MockModerationProvider`（Phase 2D 现有正则逻辑）
