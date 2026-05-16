@@ -172,8 +172,23 @@ const MESSAGE_TEMPLATES = [
 ## 8. 下一步建议
 
 - **Phase 2L-2**：用户主页 / 内容空间（展示用户发布的礼物故事，不暴露身份）
-- **Phase 3A-0**：温和评论系统设计（先发后审 + 模板化开场白）
-- **Phase 3A-1**：评论审核队列产品化
+- **Phase 3A-0**：社区功能设计评审（评论政策、审核流程、API 草案、滥用预防） ✅ **当前完成**
+- **Phase 3A-1**：评论审核引擎 + 数据模型（需用户确认后才开始）
+
+---
+
+## 9. Phase 3A-0 新增文档索引
+
+Phase 3A-0 设计评审完成后，新增以下文档：
+
+| 文档 | 内容 |
+|------|------|
+| `COMMENTS_POLICY.md` | 评论政策：允许/禁止/灰区内容、可见性规则、语气建议 |
+| `COMMENT_REVIEW_WORKFLOW.md` | 评论审核工作流：风险等级、审核维度、与现有体系关系 |
+| `COMMENTS_API_DESIGN.md` | 评论 API 设计草案：端点、数据表（不创建 migration）、状态流转 |
+| `ANONYMOUS_MESSAGING_DESIGN_REVIEW.md` | 匿名私信设计评审：模板化中继方案、禁止模板、安全机制 |
+| `ABUSE_PREVENTION.md` | 滥用预防与威胁模型：8种威胁、7层防护、敏感信息类型 |
+| `PHASE3A_PLAN.md` | Phase 3A 实施计划：3A-1 至 3A-6 各子阶段说明 |
 
 ---
 
