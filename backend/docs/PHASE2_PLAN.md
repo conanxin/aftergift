@@ -1,6 +1,6 @@
 # Phase 2 实施计划
 
-> Aftergift Phase 2 后端 MVP | 版本：2.0
+> Aftergift Phase 2 后端 MVP | 版本：2.1 | 更新：2026-05-16
 
 ---
 
@@ -44,7 +44,6 @@
 - [x] 匿名化服务（`services/anonymize_service.py`）
 - [x] 数据库初始化脚本（`scripts/init_db.py`）
 - [x] 合同测试（`tests/test_fastapi_contract.py`）
-- [x] 文档（`docs/FASTAPI_DECISION.md`）
 
 **技术决策**（详见 `docs/FASTAPI_DECISION.md`）：
 
@@ -63,111 +62,165 @@
 
 ---
 
-## Phase 2C：SQLite MVP — 数据库 + API 接入
+## Phase 2C：前后端 local API 双模式联调 ✅ 已完成
 
-**目标**：接入真实 SQLite 数据库，实现核心 API，与前端联调
+**目标**：实现核心 CRUD API，接入真实 SQLite 数据库，前端可在 static 模式和 API 模式间切换
 
 **交付物**：
-- [ ] `app.py`（FastAPI 主应用） — ✅ `app/main.py` 已完成
-- [ ] 数据库连接（`database.py` + SQLite） — ✅ 已完成
-- [ ] 用户注册/登录 API（手机号 HASH）
-- [ ] `POST /api/gifts`：故事发布 + 规则预检 + AI 审核
-- [ ] `GET /api/gifts`：公开列表（筛选+分页）
-- [ ] `GET /api/gifts/{id}`：详情
-- [ ] `POST /api/gifts/{id}/favorite`：收藏
-- [ ] `DELETE /api/gifts/{id}/favorite`：取消收藏
-- [ ] 基础前端联调（用真实 API 替代 `data/gifts.json`）
+- [x] FastAPI 主应用（`app/main.py`）
+- [x] 数据库连接（`database.py` + SQLite）
+- [x] `POST /api/gifts`：故事发布 + 规则预检
+- [x] `GET /api/gifts`：公开列表（筛选+分页）
+- [x] `GET /api/gifts/{id}`：详情
+- [x] `POST /api/gifts/{id}/favorite`：收藏
+- [x] `DELETE /api/gifts/{id}/favorite`：取消收藏
+- [x] `POST /api/gifts/{id}/report`：举报
+- [x] 前端 `?api=local` 模式切换
+- [x] 前端 Toast 反馈与后端响应码对接
+- [x] CORS 配置（允许 localhost:8080）
 
 **技术注意事项**：
 - SQLite 够用，Phase 2G 前不迁移 PostgreSQL
 - 不上 SQLAlchemy，用手写 SQL
 - `.env` 文件不提交 git
 
-**风险**：
-- 前端跨域问题（FastAPI CORS 已配置 localhost:8080）
-- AI 审核 API 延迟（需做异步队列，Phase 2D 再接真实 API）
+**验证结果**：
+- 14/14 API 端点测试全通过
+- 前端 static 模式（默认）+ API 模式（`?api=local`）均 200
+- 无生产服务残留
 
 ---
 
-## Phase 2D：前后端完整联调
+## Phase 2D：匿名身份 + Admin 审核队列 UI ✅ 已完成
 
-**目标**：联调所有功能：story/review/favorite/report
+**目标**：建立匿名身份系统，管理员可审核高风险内容
 
 **交付物**：
-- [ ] `POST /api/gifts/{id}/report`：举报
-- [ ] 审核状态展示（pending_review / needs_edit / published）
-- [ ] 收藏跨设备同步（手机号 HASH 登录）
-- [ ] 前端 Toast 反馈与后端响应码对接
-- [ ] 移动端 API 测试通过
+- [x] `app/auth.py`：HMAC-SHA256 token 生成与验证
+- [x] `POST /api/auth/anonymous`：创建匿名身份（user_id + nickname + token）
+- [x] `GET /api/auth/me`：验证当前 token
+- [x] 所有用户操作端点加 auth gate（gifts / favorites / reports）
+- [x] `GET /api/admin/reviews`：审核队列列表（27 字段）
+- [x] `POST /api/admin/reviews/{gift_id}/decision`：审核决定（approve / needs_edit / reject）
+- [x] Admin Review Panel UI（`?api=local&admin=1`）
+- [x] Dev Auth Panel UI（`?api=local`）
+- [x] `Authorization: Bearer ***` token 注入
 
-**AI 审核接入**：
-- Phase 2D 接入 OpenAI Moderation API（免费 tier）
-- 配合本地规则引擎兜底（先用本地，high_risk 再调 API）
-- 详见 `docs/FASTAPI_DECISION.md` 第 6 节
+**Token 设计**：
+- 格式：`af2d_` + base64url(user_id + ":" + HMAC-SHA256)
+- 长度：89 字符
+- 存储：localStorage（auth token）、sessionStorage（admin token）
+- TTL：7 天
 
-**风险**：
-- CORS 配置复杂（需允许前端 origin）
-- 分页 cursor 实现需前后端同步
+**验证结果**：
+- 14/14 API 端点测试全通过
+- 8/8 合同测试全通过
+- `node --check` 前端文件全部 PASS
+- `python3 -m py_compile` 后端文件全部 PASS
 
 ---
 
-## Phase 2E：审核队列 + 管理员工具
+## Phase 2E：PyJWT 升级 + Moderation Provider 抽象 🔲 待开始
 
-**目标**：建立审核队列，管理员可复审高风险内容
+**目标**：用 PyJWT 替换 HMAC 临时方案，建立可切换的 AI 审核 provider 架构
 
 **交付物**：
-- [ ] `GET /api/admin/reviews`：审核队列列表
-- [ ] `POST /api/admin/reviews/{gift_id}/decision`：审核决定
-- [ ] 管理员 Web 后台（简单 HTML + AJAX）
-- [ ] `GET /api/admin/reports`：举报列表
-- [ ] `PATCH /api/admin/reports/{id}`：处理举报
-- [ ] Telegram Bot 通知（新审核任务 / 新举报）
 
-**Telegram Bot 实现**：
-```python
-import telegram
+### 2E-1：PyJWT Token 升级
+- [ ] 安装 `PyJWT`
+- [ ] 生成标准 RS256 / HS256 JWT token
+- [ ] 更新 `app/auth.py`：JWT decode / encode 替换 HMAC
+- [ ] 支持 token 过期（`exp` claim）
+- [ ] 支持 refresh token 流程
+- [ ] 建立 token 撤销表（`revoked_tokens`）
+- [ ] 更新 `GET /api/auth/me` 验证 JWT + 检查 revoked
+- [ ] 更新 `POST /api/auth/anonymous` 签发 JWT
 
-async def notify_admin.new_review(gift_id: str, risk_level: str):
-    await bot.send_message(
-        chat_id=ADMIN_CHAT_ID,
-        text=f"🆕 新审核任务\n礼物ID: {gift_id}\n风险: {risk_level}"
-    )
+### 2E-2：Moderation Provider 抽象
+- [ ] 建立 `services/moderation/` 目录
+- [ ] 定义 `ModerationProvider` 抽象基类
+- [ ] 实现 `MockModerationProvider`（Phase 2D 现有正则逻辑）
+- [ ] 实现 `OpenAIModerationProvider`（调用 OpenAI Moderation API）
+- [ ] 实现 `BaiduModerationProvider`（调用百度内容审核 API）
+- [ ] Provider 选择通过 `MODERATION_PROVIDER` 环境变量（`mock` / `openai` / `baidu`）
+- [ ] `review_service.py` 调用抽象 provider
+
+### 2E-3：审核日志脱敏
+- [ ] `review_logs` 表中 `ai_input` / `ai_output` 字段在写入前脱敏
+- [ ] 移除 `short_story` / `full_story` 中的人名、手机号、地址、公司
+- [ ] 记录脱敏操作本身（不记录原始内容）
+- [ ] Admin 查看日志时只展示脱敏后内容
+
+**环境变量**：
+```
+MODERATION_PROVIDER=mock      # mock | openai | baidu
+OPENAI_API_KEY=               # OpenAI API Key（仅 provider=openai 时需要）
+BAIDU_API_KEY=                # 百度 API Key
+JWT_SECRET=                   # HS256 密钥（生产必须更换）
+JWT_ALGORITHM=HS256
+TOKEN_EXPIRY_DAYS=7
 ```
 
 **风险**：
-- Telegram Bot token 需保密管理
-- 管理员权限控制（防止未授权访问）
+- JWT secret 必须强随机，开发期可测试，生产必须更换
+- OpenAI API 有成本和延迟，需有 mock 兜底
 
 ---
 
-## Phase 2F：管理员后台 + 审核日志
+## Phase 2F：Admin 审核台增强 + 举报队列 🔲 待开始
 
-**目标**：完善管理员功能，审核日志可查
+**目标**：完善管理员工具，建立举报管理操作历史
 
 **交付物**：
-- [ ] 管理员登录（固定账号密码，暂不做复杂权限）
-- [ ] 审核历史查看（review_logs）
-- [ ] 管理员操作日志（admin_actions）
-- [ ] 申诉处理（用户对 rejected 的故事申诉）
-- [ ] 批量操作（批量 approve / reject）
 
-**风险**：
-- 管理员账号安全（建议后续接入 Google Auth）
+### 2F-1：Admin 审核队列增强
+- [ ] `GET /api/admin/reviews` 增加筛选条件（status / emotion / date_range）
+- [ ] `GET /api/admin/reviews` 增加排序（created_at / risk_score）
+- [ ] 分页支持（limit / offset）
+- [ ] `review_notes` 字段：管理员可写审核备注
+
+### 2F-2：举报管理队列
+- [ ] `GET /api/admin/reports`：举报列表（status / gift_id 筛选）
+- [ ] `PATCH /api/admin/reports/{id}`：处理举报（dismiss / warn / hide_gift）
+- [ ] 举报人匿名处理（不暴露举报人身份）
+- [ ] 重复举报去重（同一 gift_id + reporter_id）
+
+### 2F-3：Admin 操作历史
+- [ ] `GET /api/admin/actions`：查看 admin_actions 历史
+- [ ] 记录管理员 ID、时间戳、操作类型、目标礼物/举报 ID
+- [ ] 支持按 admin_id 和时间范围筛选
+
+### 2F-4：申诉处理（可选）
+- [ ] 用户对 `rejected` / `needs_edit` 状态发起申诉
+- [ ] 申诉记录写入 `appeals` 表
+- [ ] Admin 审核申诉
 
 ---
 
-## Phase 2G：小范围内测
+## Phase 2G：小范围本地内测 🔲 待开始
 
 **目标**：邀请种子用户内测，收集反馈，修复 bug
 
 **交付物**：
-- [ ] 邀请 20-50 名种子用户（朋友圈/社区）
-- [ ] 监控：API 错误率、审核队列积压
-- [ ] 反馈收集：Telegram 群 / 匿名表单
-- [ ] 修复 Phase 2C-F 的 bug
-- [ ] 数据备份策略（SQLite 文件备份）
 
-**PostgreSQL 迁移评估**（如果出现以下情况）：
+### 2G-1：内测准备
+- [ ] 数据备份策略（SQLite 文件备份 + 云存储上传）
+- [ ] 风险复盘文档
+- [ ] 种子用户招募（20-50 人，朋友圈 / 社区）
+- [ ] 内测协议（数据使用说明）
+
+### 2G-2：监控
+- [ ] API 错误率监控
+- [ ] 审核队列积压监控（超过 24h 告警）
+- [ ] Token 使用统计
+
+### 2G-3：反馈收集
+- [ ] Telegram 群或匿名表单
+- [ ] 用户反馈 NPS 收集
+- [ ] 修复 Phase 2E-F 的 bug
+
+### 2G-4：PostgreSQL 迁移评估
+满足以下任一条件时评估迁移：
 - 并发用户数 > 50
 - API P95 响应时间 > 500ms（由 DB 引起）
 - 需要全文搜索（PostgreSQL `tsvector`）
@@ -178,25 +231,21 @@ async def notify_admin.new_review(gift_id: str, risk_level: str):
 - 无数据泄露
 - 用户反馈 NPS > 40
 
-**风险**：
-- 种子用户故事质量低（需引导）
-- 恶意用户尝试违规（审核层兜底）
-
 ---
 
-## 资源估算
+## 资源估算（更新版）
 
 | Phase | 预计工时 | 依赖 |
 |-------|---------|------|
 | 2A（沙箱蓝图）| 1 天 | 无 |
 | 2B（FastAPI 骨架）| 1 天 | 技术选型决策 |
 | 2C（SQLite MVP）| 3-5 天 | FastAPI 学习曲线 |
-| 2D（前后端联调）| 2-3 天 | 前端 API 替换 |
-| 2E（审核队列）| 3-5 天 | Telegram Bot 经验 |
-| 2F（管理员后台）| 2-3 天 | Admin 前端 |
-| 2G（小范围内测）| 1-2 周 | 种子用户招募 |
+| 2D（匿名身份 + Admin UI）| 2-3 天 | Auth 设计 |
+| **2E（PyJWT + Moderation 抽象）**| 3-5 天 | PyJWT 经验 |
+| **2F（Admin 增强 + 举报队列）**| 2-3 天 | Admin 前端 |
+| **2G（小范围内测）**| 1-2 周 | 种子用户招募 |
 
-**总计**：约 3-4 周（如果全职投入）
+**Phase 2E-F 预计：5-8 天**
 
 ---
 
@@ -204,12 +253,29 @@ async def notify_admin.new_review(gift_id: str, risk_level: str):
 
 | 风险 | 影响 | 应对 |
 |------|------|------|
+| JWT secret 泄露 | 管理员权限被冒用 | 生产必须更换强随机密钥 |
+| OpenAI API 成本超支 | 审核费用过高 | mock provider 兜底 + 每日调用上限 |
 | 前端跨域 CORS | API 无法调用 | FastAPI CORSMiddleware allow localhost:8080 |
-| AI 审核 API 限流 | 审核队列积压 | 本地规则引擎兜底 |
-| 恶意举报 | 审核队列被污染 | IP hash 防刷 + 验证码 |
-| 数据丢失 | SQLite 文件损坏 | 定期备份 + 备份上传到云存储 |
-| 管理员账号泄露 | 后台被入侵 | 二次验证 + 操作留痕 |
+| 恶意举报污染队列 | 审核效率降低 | IP hash 防刷 + 验证码 |
+| SQLite 并发限制 | 高并发下性能下降 | Phase 2G 前评估 PostgreSQL 迁移 |
+| 种子用户故事质量低 | 平台调性偏离 | 内容政策引导 + 审核层兜底 |
 
 ---
 
-*最后更新：Phase 2B 完成时生成。*
+## 路线图总览
+
+```
+Phase 2A  ✅ 沙箱蓝图
+Phase 2B  ✅ FastAPI 骨架
+Phase 2C  ✅ SQLite MVP + API 联调
+Phase 2D  ✅ 匿名身份 + Admin 审核 UI
+Phase 2E  🔲 PyJWT 升级 + Moderation Provider 抽象（下一步）
+Phase 2F  🔲 Admin 增强 + 举报队列
+Phase 2G  🔲 小范围本地内测
+Phase 3A  🔲 社区功能（收藏、评论、私信）
+Phase 3B  🔲 交易功能（担保交易、物流、交换撮合）
+```
+
+---
+
+*最后更新：Phase 2D 完成后（2026-05-16）。*

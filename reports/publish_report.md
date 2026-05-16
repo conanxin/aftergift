@@ -28,7 +28,7 @@ https://conanxin.github.io/projects/aftergift-prototype/
 - 已移除 robots meta tag
 
 ## 7. DRAFTS_NOINDEX
-- `drafts/aftergift-prototype/index.html` 含 noindex ✅
+✅ `drafts/aftergift-prototype/index.html` 含 noindex
 
 ## 8. INDEPENDENT_REPO_DIR
 `~/projects/aftergift/`
@@ -39,7 +39,6 @@ https://conanxin.github.io/projects/aftergift-prototype/
 aftergift/
 ├── .gitignore
 ├── README.md
-├── MANUAL_SETUP.md          ← 待 GitHub 仓库创建后推送
 ├── docs/                    ← 文档索引
 ├── frontend/               ← 静态 Web App（Phase 1）
 │   ├── index.html
@@ -65,7 +64,7 @@ aftergift/
 │   │   │   │   ├── review_service.py
 │   │   │   │   └── anonymize_service.py
 │   │   │   ├── models.py, schemas.py, database.py, config.py
-│   │   └── requirements.txt
+│   │   │   └── requirements.txt
 │   ├── scripts/
 │   │   └── init_db.py
 │   ├── tests/
@@ -75,10 +74,12 @@ aftergift/
 │   │   ├── ADMIN_REVIEW_UI.md
 │   │   ├── API_DESIGN.md
 │   │   ├── BACKEND_SPEC.md
+│   │   ├── PHASE2_PLAN.md
 │   │   └── SECURITY_NOTES.md
 │   └── reports/
 │       └── phase2d_auth_admin_report.md
 └── reports/
+    └── publish_report.md
 ```
 
 ## 10. SECURITY_SCAN
@@ -92,14 +93,21 @@ aftergift/
 
 ## 11. GIT_COMMITS
 
-**Pages 仓库**：
-- `783bc8b` — Publish Aftergift project demo
-- `4a1eaa3` — Add Aftergift Phase 2D auth and admin review UI
-- `fb17a74` — Add Aftergift Phase 2D (rebase merge)
-- `7342c5c` — Publish Aftergift project demo
+### Pages 仓库
+| Commit | 说明 |
+|--------|------|
+| `783bc8b` | Publish Aftergift project demo |
+| `4a1eaa3` | Add Aftergift Phase 2D auth and admin review UI |
+| `fb17a74` | Add Aftergift Phase 2D (rebase merge) |
+| `7342c5c` | Publish Aftergift project demo |
 
-**独立仓库**（已推送）：
-- `8ff021e` — Initial commit: Aftergift full project ✅ 已推送至 origin/main
+### 独立仓库（GitHub）
+| Commit | 说明 |
+|--------|------|
+| `8ff021e` | Initial commit: Aftergift full project |
+| `98be625` | Update publish report: independent repo pushed successfully |
+
+**独立仓库 GitHub**：https://github.com/conanxin/aftergift
 
 ## 12. ONLINE_VALIDATION
 ⚠️ GitHub Pages 存在 1-5 分钟缓存延迟，以下 URL 需等待缓存更新后验证：
@@ -112,7 +120,7 @@ https://conanxin.github.io/projects/aftergift-prototype/api-client.js
 https://conanxin.github.io/projects/aftergift-prototype/data/gifts.json
 ```
 
-## 12. INDEPENDENT_REPO_URL
+## 13. INDEPENDENT_REPO_URL
 ✅ **已推送成功**
 
 - **URL**：https://github.com/conanxin/aftergift
@@ -135,19 +143,38 @@ git push -u origin main
 
 **HTTPS 验证**：`curl -I https://github.com/conanxin/aftergift` → HTTP 200 ✅
 
-## 14. RISKS_REMAINING
+## 14. PHASE_STATUS
+
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| Phase 1 | 静态产品 Demo | ✅ 完成 |
+| Phase 2A | 后端沙箱蓝图 | ✅ 完成 |
+| Phase 2B | FastAPI 骨架 + SQLite | ✅ 完成 |
+| Phase 2C | 前后端 local API 双模式联调 | ✅ 完成 |
+| Phase 2D | 匿名身份 + Admin 审核队列 UI | ✅ 完成 |
+| Phase 2E | PyJWT + Moderation Provider 抽象 | 🔲 待开始 |
+| Phase 2F | Admin 增强 + 举报队列 | 🔲 待开始 |
+| Phase 2G | 小范围本地内测 | 🔲 待开始 |
+
+## 15. RISKS_REMAINING
 
 1. **localStorage XSS 风险**：Token 存 localStorage，Phase 2E 升级 JWT 时缓解
 2. **固定 admin token**：仅开发期使用，生产需更换
 3. **HMAC 非标准 JWT**：Phase 2E 升级 PyJWT
 4. **无 refresh token**：过期需重建身份
 5. **审核无实时通知**：Phase 3A 实现
+6. **SQLite 并发限制**：Phase 2G 前评估 PostgreSQL 迁移
 
-## 15. NEXT_RECOMMENDED_PHASE
+## 16. NEXT_RECOMMENDED_PHASE
 
-- **Phase 2E**：PyJWT + AI 审核接入
-- **Phase 3A**：收藏列表、匿名评论、私信
-- **Phase 3B**：担保交易、物流、交换撮合
+**Phase 2E**：PyJWT 升级 + Moderation Provider 抽象
+- PyJWT token 替换 HMAC 方案
+- Token 过期与撤销表
+- Moderation provider 抽象：mock / openai / baidu
+- 审核日志脱敏
+
+**Phase 3A**：收藏列表、匿名评论、私信
+**Phase 3B**：担保交易、物流、交换撮合
 
 ---
 
