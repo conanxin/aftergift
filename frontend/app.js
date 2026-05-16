@@ -20,7 +20,7 @@
   var favoritesMeta = {};       // { id: { favorite_created_at: '...', favorite_count: N } }
   var favoritesCount = 0;       // cached total for badge display
   var searchMeta = { total: 0, page: 1, limit: 12, total_pages: 0, has_more: false };
-  var currentView = 'home';     // 'home' | 'favorites'
+  var currentView = 'home';     // 'home' | 'favorites' | 'my_space'
 
   // ── Story Tip Prompts ──
   var STORY_TIPS = [
@@ -69,6 +69,7 @@
     initDevAuthPanel();
     bindDevAuthEvents();
     initAdminPanel();
+    updateHeroMySpaceButton(); // Phase 2L-2: show my-space button when logged in
   });
 
   // ── Favorites (localStorage) ──
@@ -1823,6 +1824,7 @@
             window.AftergiftAPI.storeToken(result.access_token);
             showDevAuthIdentity(result.anonymous_nickname);
             showToast('匿名身份已创建：' + result.anonymous_nickname);
+            updateHeroMySpaceButton();
             createBtn.disabled = false;
             createBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>创建匿名身份';
           }).catch(function() {
@@ -1837,6 +1839,7 @@
           if (window.AftergiftAPI && window.AftergiftAPI.clearStoredToken) window.AftergiftAPI.clearStoredToken();
           showDevAuthNoIdentity();
           showToast('本地身份已清除');
+          updateHeroMySpaceButton();
         });
       }
     }
@@ -2361,6 +2364,10 @@
       if (params.get('view') === 'favorites') {
         enterFavoritesView();
       }
+      // Phase 2L-2: handle ?view=me
+      if (params.get('view') === 'me') {
+        enterMySpaceView();
+      }
     }
 
     window.enterFavoritesView = function () {
@@ -2469,6 +2476,20 @@
       }
     };
 
+    // Phase 2L-2: Show my-space button only when logged in (API mode)
+    window.updateHeroMySpaceButton = function () {
+      var btn = document.getElementById('heroMySpaceBtn');
+      if (!btn) return;
+      var mode = window.__AF_MODE || 'static';
+      if (mode === 'api') {
+        var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+          ? window.AftergiftAPI.getStoredToken() : null;
+        btn.style.display = token ? '' : 'none';
+      } else {
+        btn.style.display = 'none'; // hidden in static mode
+      }
+    };
+
     // ── Phase 2K-2: Update Hero Favorites Badge ─────────────────────────────
     // Shows badge count on hero favorites button.
     // API mode: calls GET /api/gifts?favorites_of=me&limit=1 to get total count.
@@ -2522,6 +2543,218 @@
     // (We will insert the badge update at the end of toggleFavorite — see there)
 
     window.updateHeroFavoritesBadge(); // initial call during init
+
+    // ── Phase 2L-2: My Space ────────────────────────────────────────────────
+
+    window.enterMySpaceView = function () {
+      var mode = window.__AF_MODE || 'static';
+      if (mode === 'api') {
+        var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+          ? window.AftergiftAPI.getStoredToken() : null;
+        if (!token) {
+          showToast('请先创建匿名身份，再进入我的空间。');
+          return;
+        }
+      }
+      currentView = 'my_space';
+      document.body.classList.add('my-space-active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      loadMySpace();
+    };
+
+    window.exitMySpaceView = function () {
+      currentView = 'home';
+      document.body.classList.remove('my-space-active');
+      var params = new URLSearchParams(window.location.search);
+      params.delete('view');
+      var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+      loadGifts();
+    };
+
+    function loadMySpace() {
+      var mode = window.__AF_MODE || 'static';
+      var mySpaceViewEl = document.getElementById('mySpaceView');
+      if (!mySpaceViewEl) return;
+      mySpaceViewEl.style.display = 'block';
+
+      if (mode !== 'api') {
+        renderMySpaceStatic();
+        return;
+      }
+
+      renderMySpaceIdentity();
+      renderMySpaceStats({ published: '–', pending: '–', favorites: '–', drafts: '–' });
+      loadMySpaceData();
+    }
+
+    function renderMySpaceIdentity() {
+      var body = document.getElementById('mySpaceIdentityBody');
+      if (!body) return;
+      body.innerHTML = '<div class="msic-loading">正在读取身份信息...</div>';
+
+      var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+        ? window.AftergiftAPI.getStoredToken() : null;
+
+      if (!token) {
+        body.innerHTML = '<div class="msic-nickname">未登录</div><div class="msic-token-status"><span class="msic-token-dot invalid"></span> 无效</div>';
+        return;
+      }
+
+      window.AftergiftAPI.getCurrentUser(token).then(function (user) {
+        body.innerHTML =
+          '<div class="msic-nickname">' + escHtml(user.anonymous_nickname || user.nickname || '匿名用户') + '</div>' +
+          '<div class="msic-token-status"><span class="msic-token-dot valid"></span> 身份有效 · ' + escHtml(user.user_id || '') + '</div>';
+      }).catch(function () {
+        body.innerHTML = '<div class="msic-nickname">已登录</div><div class="msic-token-status"><span class="msic-token-dot valid"></span> 身份有效</div>';
+      });
+    }
+
+    function renderMySpaceStats(stats) {
+      var el;
+      el = document.getElementById('mySpacePublishedCount');
+      if (el) el.textContent = stats.published;
+      el = document.getElementById('mySpacePendingCount');
+      if (el) el.textContent = stats.pending;
+      el = document.getElementById('mySpaceFavoritesCount');
+      if (el) el.textContent = stats.favorites;
+      el = document.getElementById('mySpaceDraftsCount');
+      if (el) el.textContent = stats.drafts;
+    }
+
+    function loadMySpaceData() {
+      var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+        ? window.AftergiftAPI.getStoredToken() : null;
+      if (!token) return;
+
+      var draftsCount = 0;
+      try {
+        var keys = Object.keys(localStorage);
+        draftsCount = keys.filter(function (k) { return k.indexOf('aftergift_edit_draft_') === 0; }).length;
+      } catch (e) {}
+
+      window.AftergiftAPI.listGifts({ mine: true, limit: 1 }, []).then(function (result) {
+        var publishedCount = result.total || 0;
+        return window.AftergiftAPI.listGifts({ mine: true, action_type: 'pending', limit: 1 }, []);
+      }).then(function (result) {
+        var pendingCount = result.total || 0;
+        return window.AftergiftAPI.listGifts({ favorites_of: 'me', limit: 1 }, []);
+      }).then(function (result) {
+        var favoritesCount = result.total || 0;
+        renderMySpaceStats({
+          published: window._ms_publishedCount || '–',
+          pending: window._ms_pendingCount || '–',
+          favorites: favoritesCount,
+          drafts: draftsCount
+        });
+        return window.AftergiftAPI.listGifts({ mine: true, limit: 3 }, []);
+      }).then(function (result) {
+        renderMySpaceGiftList(result.items || []);
+        return window.AftergiftAPI.getMyActions({ limit: 5 });
+      }).then(function (actions) {
+        renderMySpaceActionList(actions || []);
+      }).catch(function (err) {
+        renderMySpaceStats({ published: '–', pending: '–', favorites: '–', drafts: draftsCount });
+        var gl = document.getElementById('mySpaceGiftList');
+        if (gl) gl.innerHTML = '<div class="my-space-loading">无法加载数据，请检查 API 连接。</div>';
+        var al = document.getElementById('mySpaceActionList');
+        if (al) al.innerHTML = '<div class="my-space-loading">无法加载操作历史。</div>';
+      });
+    }
+
+    // Pre-load counts for stats display
+    (function () {
+      var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+        ? window.AftergiftAPI.getStoredToken() : null;
+      if (!token) return;
+      window.AftergiftAPI.listGifts({ mine: true, limit: 1 }, []).then(function (r) {
+        window._ms_publishedCount = r.total || 0;
+        return window.AftergiftAPI.listGifts({ mine: true, action_type: 'pending', limit: 1 }, []);
+      }).then(function (r) {
+        window._ms_pendingCount = r.total || 0;
+      }).catch(function () {});
+    })();
+
+    function renderMySpaceStatic() {
+      renderMySpaceIdentity();
+      var draftsCount = 0;
+      try {
+        var keys = Object.keys(localStorage);
+        draftsCount = keys.filter(function (k) { return k.indexOf('aftergift_edit_draft_') === 0; }).length;
+      } catch (e) {}
+      var favCount = 0;
+      try {
+        var stored = localStorage.getItem('aftergift_favorites');
+        var favs = stored ? JSON.parse(stored) : {};
+        favCount = Object.keys(favs).filter(function (id) { return !!favs[id]; }).length;
+      } catch (e) {}
+      renderMySpaceStats({ published: '–', pending: '–', favorites: String(favCount), drafts: String(draftsCount) });
+      var gl = document.getElementById('mySpaceGiftList');
+      if (gl) gl.innerHTML = '<div class="my-space-loading">本地模式暂不支持查看我的发布，请切换到 API 模式。</div>';
+      var al = document.getElementById('mySpaceActionList');
+      if (al) al.innerHTML = '<div class="my-space-loading">本地模式暂不支持查看操作历史。</div>';
+    }
+
+    function renderMySpaceGiftList(gifts) {
+      var container = document.getElementById('mySpaceGiftList');
+      if (!container) return;
+      if (!gifts || gifts.length === 0) {
+        container.innerHTML = '<div class="my-space-loading">你还没有发布任何礼物故事。</div>';
+        return;
+      }
+      var html = '';
+      var statusLabel = { published: '已发布', pending_review: '待审核', needs_revision: '需修改', archived: '已归档' };
+      var statusColor = { published: '#22c55e', pending_review: '#f59e0b', needs_revision: '#ef4444', archived: '#9ca3af' };
+      gifts.slice(0, 3).forEach(function (g) {
+        var status = g.status || 'published';
+        var sText = statusLabel[status] || status;
+        var sColor = statusColor[status] || '#9ca3af';
+        html +=
+          '<div class="msa-item" style="cursor:pointer" onclick="openDetail(\'' + g.id + '\')">' +
+          '<div class="msa-icon publish">' +
+          '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M8 2v8M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</div>' +
+          '<div class="msa-text"><div class="msa-title">' + escHtml(g.name || g.title || '') + '</div>' +
+          '<div class="msa-meta"><span style="color:' + sColor + '">● ' + sText + '</span> · ' + escHtml(g.actionLabel || g.action || '') + '</div></div>' +
+          '<div class="msa-time">' + escHtml(g.created_at ? g.created_at.slice(0, 10) : '') + '</div>' +
+          '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function renderMySpaceActionList(actions) {
+      var container = document.getElementById('mySpaceActionList');
+      if (!container) return;
+      if (!actions || actions.length === 0) {
+        container.innerHTML = '<div class="my-space-loading">还没有任何操作记录。</div>';
+        return;
+      }
+      var iconMap = { edit: 'edit', resubmit: 'resubmit', archive: 'archive', restore: 'restore', publish: 'publish', delete: 'edit' };
+      var labelMap = { edit: '编辑故事', resubmit: '重新提交', archive: '暂时收起', restore: '恢复审核', publish: '发布故事', delete: '删除' };
+      var html = '';
+      actions.slice(0, 5).forEach(function (a) {
+        var icon = iconMap[a.action] || 'edit';
+        var label = labelMap[a.action] || a.action || '操作';
+        html +=
+          '<div class="msa-item">' +
+          '<div class="msa-icon ' + icon + '">' +
+          '<svg viewBox="0 0 16 16" fill="none" width="12" height="12"><path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
+          '</div>' +
+          '<div class="msa-text"><div class="msa-title">' + escHtml(a.gift_title || a.gift_name || '—') + '</div>' +
+          '<div class="msa-meta">' + label + '</div></div>' +
+          '<div class="msa-time">' + escHtml(a.created_at ? a.created_at.slice(0, 10) : '') + '</div>' +
+          '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    document.getElementById('mySpaceBackBtn').addEventListener('click', exitMySpaceView);
+
+    document.getElementById('mySpaceViewAllPublished').addEventListener('click', function () {
+      exitMySpaceView();
+      var mineTab = document.querySelector('.filter-tab[data-filter="mine"]');
+      if (mineTab) mineTab.click();
+    });
 
     // ── End Favorites View ──────────────────────────────────────────────────
 

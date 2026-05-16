@@ -48,6 +48,10 @@
           <span id="heroFavoritesLabel">我的收藏</span>
           <span class="fav-badge" id="heroFavoritesBadge" style="display:none" aria-hidden="true"></span>
         </button>
+        <button class="btn btn-secondary" id="heroMySpaceBtn" style="display:none" onclick="enterMySpaceView()" aria-label="我的空间">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M10 9a3 3 0 100-6 3 3 0 000 6zM2 17a9 9 0 0116 0v1H2v-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          我的空间
+        </button>
       </div>
       <div class="hero-scroll-hint" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -601,6 +605,92 @@
       </div>
       <div class="admin-queue-empty" id="adminQueueEmpty" style="display:none" role="status">
         <p>当前没有待审核的故事。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== MY SPACE (PRIVATE) ========== -->
+  <section class="my-space-view" id="mySpaceView" style="display:none" aria-label="我的空间">
+    <div class="my-space-header" id="mySpaceHeader">
+      <div class="container">
+        <button class="btn btn-ghost my-space-back-btn" id="mySpaceBackBtn" aria-label="返回首页">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          返回
+        </button>
+        <h2 class="my-space-title">我的空间</h2>
+      </div>
+    </div>
+    <div class="container">
+      <!-- Identity Card -->
+      <div class="my-space-identity-card" id="mySpaceIdentity">
+        <div class="msic-header">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M4 20a8 8 0 0116 0v1H4v-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>身份状态</span>
+        </div>
+        <div class="msic-body" id="mySpaceIdentityBody">
+          <div class="msic-loading">正在读取身份信息...</div>
+        </div>
+        <div class="msic-footer">
+          <svg viewBox="0 0 16 16" fill="none" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          这个身份只保存在当前浏览器，不会上传至服务器。
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="my-space-stats-grid" id="mySpaceStatsGrid">
+        <!-- My Published -->
+        <div class="my-space-stat-card" id="mySpaceStatPublished">
+          <div class="mss-icon">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="mss-num" id="mySpacePublishedCount">–</div>
+          <div class="mss-label">已发布</div>
+        </div>
+        <!-- Pending Review -->
+        <div class="my-space-stat-card" id="mySpaceStatPending">
+          <div class="mss-icon mss-icon-warn">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 7v5m0 3v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="mss-num" id="mySpacePendingCount">–</div>
+          <div class="mss-label">待审核</div>
+        </div>
+        <!-- My Favorites -->
+        <div class="my-space-stat-card" id="mySpaceStatFavorites">
+          <div class="mss-icon mss-icon-fav">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M3.172 5.172a5 5 0 017.07 0L12 6.343l1.757-1.171a5 5 0 017.07 7.07L12 20.485l-6.9-6.9A5 5 0 013.17 5.17z" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+          <div class="mss-num" id="mySpaceFavoritesCount">–</div>
+          <div class="mss-label">我的收藏</div>
+        </div>
+        <!-- Local Drafts -->
+        <div class="my-space-stat-card" id="mySpaceStatDrafts">
+          <div class="mss-icon mss-icon-draft">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="mss-num" id="mySpaceDraftsCount">–</div>
+          <div class="mss-label">本地草稿</div>
+        </div>
+      </div>
+
+      <!-- My Published Section -->
+      <div class="my-space-section" id="mySpacePublishedSection">
+        <div class="mss-section-header">
+          <h3 class="mss-section-title">我的发布</h3>
+          <button class="btn btn-ghost btn-sm" id="mySpaceViewAllPublished">查看全部</button>
+        </div>
+        <div class="my-space-gift-list" id="mySpaceGiftList">
+          <div class="my-space-loading">正在加载...</div>
+        </div>
+      </div>
+
+      <!-- My Favorites Link -->
+      <div class="my-space-section">
+        <div class="mss-section-header">
+          <h3 class="mss-section-title">操作历史</h3>
+        </div>
+        <div class="my-space-action-list" id="mySpaceActionList">
+          <div class="my-space-loading">正在加载...</div>
+        </div>
       </div>
     </div>
   </section>

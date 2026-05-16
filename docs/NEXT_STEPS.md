@@ -26,6 +26,7 @@
 | Phase 2K-1 | 收藏视图 | 100% | `?view=favorites`、Hero 收藏入口、返回首页、API favorites_of=me、静态模式 localStorage |
 | Phase 2K-2 | 收藏数量 Badge + 排序 | 100% | Hero 收藏按钮 Badge、按收藏时间倒序（最新收藏在前）、auth 失败分级处理 |
 | Phase 2L-1 | 社区功能准备 / Community Readiness | 100% | 收藏时间标签、收藏成功引导文案、Modal 静默提示、COMMUNITY_READINESS.md |
+| Phase 2L-2 | 我的空间 / Private User Space | 100% | `?view=me`、身份状态卡片、统计网格、发布列表、操作历史、本地草稿计数 |
 
 ---
 

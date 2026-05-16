@@ -2185,3 +2185,283 @@ body.favorites-view .favorites-view-header {
     justify-content: center;
   }
 }
+
+/* ── Phase 2L-2: My Space ─────────────────────────────────────────── */
+.my-space-view {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: 0 0 60px;
+}
+
+.my-space-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+  margin-bottom: 32px;
+}
+
+.my-space-header .container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.my-space-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+
+.my-space-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Identity Card */
+.my-space-identity-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.msic-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.msic-body {
+  padding: 16px 18px;
+  font-size: 0.9rem;
+}
+
+.msic-loading,
+.my-space-loading {
+  color: var(--text-3);
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
+
+.msic-nickname {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.msic-token-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.msic-token-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+  display: inline-block;
+}
+
+.msic-token-dot.valid { background: #22c55e; }
+.msic-token-dot.invalid { background: #ef4444; }
+
+.msic-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-size: 0.72rem;
+  color: var(--text-3);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+/* Stats Grid */
+.my-space-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.my-space-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px 12px;
+  text-align: center;
+  transition: box-shadow 0.2s;
+}
+
+.my-space-stat-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.mss-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--text-2);
+}
+
+.mss-icon-warn { color: #f59e0b; }
+.mss-icon-fav { color: #e879a9; }
+.mss-icon-draft { color: var(--text-3); }
+
+.mss-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.mss-label {
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
+/* My Space Sections */
+.my-space-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.mss-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.mss-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.my-space-gift-list,
+.my-space-action-list {
+  padding: 14px 18px;
+}
+
+.msa-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.msa-item:last-child { border-bottom: none; }
+
+.msa-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  color: var(--text-2);
+}
+
+.msa-icon.edit { background: #fef3c7; color: #d97706; }
+.msa-icon.resubmit { background: #dbeafe; color: #2563eb; }
+.msa-icon.archive { background: #f3f4f6; color: #6b7280; }
+.msa-icon.restore { background: #d1fae5; color: #059669; }
+.msa-icon.publish { background: #ede9fe; color: #7c3aed; }
+
+.msa-text { flex: 1; }
+.msa-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.msa-meta {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.msa-time {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.my-space-drafts-note {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-align: center;
+  padding: 8px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Mobile responsive for my-space */
+@media (max-width: 640px) {
+  .my-space-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mss-num {
+    font-size: 1.3rem;
+  }
+
+  .my-space-identity-card .msic-footer {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .my-space-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Phase 2L-2: Hide other sections when my-space is active */
+body.my-space-active .hero,
+body.my-space-active #stories,
+body.my-space-active .filter-bar,
+body.my-space-active #publish,
+body.my-space-active #concept,
+body.my-space-active #ethics,
+body.my-space-active #roadmap,
+body.my-space-active footer {
+  display: none !important;
+}
+
+body.my-space-active .my-space-view {
+  display: block !important;
+}
