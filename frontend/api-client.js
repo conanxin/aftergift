@@ -142,45 +142,91 @@
 
   /**
    * 获取礼物列表。
-   * API 模式：GET /api/gifts?action_type=...&emotion=...&page=1&limit=50
+   * API 模式：GET /api/gifts?q=...&action_type=...&emotion=...&page=1&limit=12
    * Static 模式：读取 ./data/gifts.json（全量，内存中过滤）
    *
-   * @param {Object} filters  - { action_type, emotion, page, limit }
+   * @param {Object} filters  - { q, action_type, emotion, relation_type, city_blur, page, limit, sort, order }
    * @param {Array}  staticData - static 模式下的全量数据（由 app.js 传入）
-   * @returns {Promise<{items: Array, total: number, has_more: boolean, mode: string}>}
+   * @returns {Promise<{items: Array, total: number, page: number, limit: number, total_pages: number, has_more: boolean, mode: string, filters: Object}>}
    */
   function listGifts(filters, staticData) {
     filters = filters || {};
     if (MODE === 'api') {
       var params = new URLSearchParams();
-      if (filters.action_type) params.set('action_type', filters.action_type);
-      if (filters.emotion)     params.set('emotion',     filters.emotion);
+      if (filters.q)             params.set('q',             filters.q);
+      if (filters.action_type)   params.set('action_type',   filters.action_type);
+      if (filters.emotion)       params.set('emotion',       filters.emotion);
+      if (filters.relation_type) params.set('relation_type', filters.relation_type);
+      if (filters.city_blur)     params.set('city_blur',     filters.city_blur);
       params.set('page',  String(filters.page  || 1));
-      params.set('limit', String(filters.limit || 50));
+      params.set('limit', String(filters.limit || 12));
+      if (filters.sort)  params.set('sort',  filters.sort);
+      if (filters.order) params.set('order', filters.order);
       var qs = params.toString();
       return apiFetch('/api/gifts' + (qs ? '?' + qs : '')).then(unwrap).then(function (data) {
         return {
-          items:   (data.items || []).map(normalizeGift),
-          total:   data.pagination ? data.pagination.total : (data.items || []).length,
-          has_more: data.pagination ? data.pagination.has_more : false,
-          mode:    'api'
+          items:      (data.items || []).map(normalizeGift),
+          total:      data.total      || 0,
+          page:       data.page       || 1,
+          limit:      data.limit      || 12,
+          total_pages: data.total_pages || 0,
+          has_more:   data.has_more   || false,
+          mode:       'api',
+          filters:    data.filters    || {}
         };
       });
     }
 
     // Static mode: filter in-memory
+    var q = (filters.q || '').trim().toLowerCase();
     var items = (staticData || []).filter(function (g) {
       if (filters.action_type && filters.action_type !== 'all') {
         if (g.action !== filters.action_type && g.action_type !== filters.action_type) return false;
       }
       if (filters.emotion && g.emotion !== filters.emotion) return false;
+      if (filters.relation_type && g.relation !== filters.relation_type && g.relation_type !== filters.relation_type) return false;
+      if (q) {
+        var hay = [
+          g.name || g.title || '',
+          g.type || g.category || '',
+          g.relation || g.relation_type || '',
+          g.relationLabel || g.relation_label || '',
+          g.action || g.action_type || '',
+          g.emotion || '',
+          g.excerpt || g.short_story || g.shortStory || '',
+          g.fullStory || (g.story && g.story.full_story) || '',
+          g.city_blur || g.cityBlur || ''
+        ].join(' ').toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
       return true;
     });
+
+    // Static pagination
+    var page  = Math.max(1, parseInt(filters.page, 10) || 1);
+    var limit = Math.max(1, Math.min(100, parseInt(filters.limit, 10) || 12));
+    var total = items.length;
+    var total_pages = Math.ceil(total / limit) || 0;
+    var offset = (page - 1) * limit;
+    var paginated = items.slice(offset, offset + limit);
+
     return Promise.resolve({
-      items:   items.map(normalizeGift),
-      total:   items.length,
-      has_more: false,
-      mode:    'static'
+      items:       paginated.map(normalizeGift),
+      total:       total,
+      page:        page,
+      limit:       limit,
+      total_pages: total_pages,
+      has_more:    page < total_pages,
+      mode:        'static',
+      filters:     {
+        q: filters.q || null,
+        emotion: filters.emotion || null,
+        action_type: filters.action_type || null,
+        relation_type: filters.relation_type || null,
+        city_blur: filters.city_blur || null,
+        sort: filters.sort || null,
+        order: filters.order || null
+      }
     });
   }
 

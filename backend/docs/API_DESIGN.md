@@ -54,19 +54,22 @@
 
 ### 2.2 GET /api/gifts
 
-**用途**：获取公开礼物列表
+**用途**：获取公开礼物列表（支持搜索、筛选、分页、排序）
 
 **权限**：公开
 
 **Query 参数**：
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| q | string | null | 关键词搜索（标题 + 故事全文） |
 | action_type | string | null | 筛选：sell/exchange/giveaway/donate/keep |
 | emotion | string | null | 筛选情绪标签 |
-| favorites_of | string | null | 用户 ID，返回该用户的收藏（需要登录）|
+| relation_type | string | null | 筛选关系类型 |
+| city_blur | string | null | 筛选城市模糊 |
 | page | integer | 1 | 页码 |
-| limit | integer | 8 | 每页数量（上限 50）|
-| cursor | string | null | 游标分页（上一页最后一条的 id）|
+| limit | integer | 12 | 每页数量（上限 50）|
+| sort | string | created_at | 排序字段（白名单：created_at/updated_at/title/price_or_exchange）|
+| order | string | desc | 排序方向：asc 或 desc |
 
 **响应示例**：
 ```json
@@ -74,33 +77,29 @@
   "code": 200,
   "message": "success",
   "data": {
-    "items": [
-      {
-        "id": "gift-uuid-001",
-        "title": "星空投影灯",
-        "category": "家居装饰",
-        "relation_label": "前任",
-        "action_type": "sell",
-        "action_label": "出售",
-        "emotion": "放下",
-        "excerpt": "在一起三年，分手后每次看到它都会想起那段时间……",
-        "price_or_exchange": "￥280",
-        "status": "published",
-        "is_anonymous": true,
-        "anonymous_nickname": "安静的旧物收藏者 #4827",
-        "created_at": "2026-04-15 12:00:00"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 8,
-      "total": 42,
-      "has_more": true,
-      "next_cursor": "gift-uuid-009"
+    "items": [...],
+    "total": 42,
+    "page": 1,
+    "limit": 12,
+    "total_pages": 4,
+    "has_more": true,
+    "filters": {
+      "q": "灯",
+      "emotion": null,
+      "action_type": null,
+      "relation_type": null,
+      "city_blur": null,
+      "sort": "created_at",
+      "order": "desc"
     }
   }
 }
 ```
+
+**安全说明**：
+- `sort` / `order` 参数通过白名单校验，非法值返回 400
+- 仅返回 `status='published'` 的内容
+- 搜索摘要自动移除 HTML 标签，防止 XSS
 
 **风险说明**：
 - 不返回 full_story（完整故事），完整故事在 GET /api/gifts/{id} 中获取

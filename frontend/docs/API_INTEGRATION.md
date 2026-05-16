@@ -246,24 +246,56 @@ AftergiftAPI.clearStoredToken()     // localStorage.removeItem('aftergift_token'
 
 | 限制 | 说明 |
 |------|------|
-| **Phase 2D Token 非 JWT** | 使用 HMAC-SHA256 签名，非标准 JWT，Phase 2E 可升级为 PyJWT |
+| **Phase 2E JWT 已升级** | 使用 PyJWT 标准 JWT，支持 exp/iat/sub/role |
 | **localStorage 风险** | Token 存 localStorage 可被 XSS 读取，内容审核是主要防护 |
 | **单一固定 admin token** | Phase 2D 无多管理员、无角色分级 |
 | **无 refresh token** | Token 过期后需重新创建匿名身份 |
 | **needs_edit 无通知** | 审核退回后无自动消息通知用户 |
 | **CORS 仅限本地** | 后端 CORS 白名单仅含 `localhost:8080` 和 `127.0.0.1:8080` |
-| **无分页前端** | 前端一次性加载全量列表，未实现滚动加载 |
+| **前端分页基础** | Phase 2G-1 已实现分页参数传递，前端 UI 分页待完善 |
 
 ---
 
-## 11. 快速验证清单
+## 11. Phase 2G-1 搜索功能
+
+### 新增 API 能力
+
+`GET /api/gifts` 现支持以下搜索参数：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `q` | 关键词搜索（标题 + 故事） | `q=灯` |
+| `emotion` | 情绪标签筛选 | `emotion=平静` |
+| `action_type` | 处理方式筛选 | `action_type=sell` |
+| `relation_type` | 关系类型筛选 | `relation_type=lover` |
+| `city_blur` | 城市模糊筛选 | `city_blur=上海` |
+| `page` / `limit` | 分页 | `page=1&limit=12` |
+| `sort` / `order` | 排序（白名单校验） | `sort=created_at&order=desc` |
+
+### 前端搜索
+
+- 搜索框位于礼物故事流顶部
+- 支持 Enter 键触发搜索
+- 筛选标签（全部/出售/交换/赠送/捐出/只展示故事）与搜索词共存
+- Static 模式：内存过滤 + 分页
+- API 模式：后端 SQL 查询 + 分页
+
+### 安全
+
+- `sort` / `order` 白名单校验，防止 SQL 注入
+- 搜索摘要移除 HTML 标签，防止 XSS
+- 仅返回 `status='published'` 的内容
+
+---
+
+## 12. 快速验证清单
 
 ```bash
 # 1. 启动后端
-cd ~/projects/aftergift-backend-mvp/backend && . .venv/bin/activate && uvicorn app.main:app --host 127.0.0.1 --port 8091 &
+cd ~/projects/aftergift/backend/backend && uvicorn app.main:app --host 127.0.0.1 --port 8091 &
 
 # 2. 启动前端
-cd ~/projects/aftergift-prototype && python3 -m http.server 8080 &
+cd ~/projects/aftergift/frontend && python3 -m http.server 8080 &
 
 # 3. 验证 static 模式
 # → 打开 http://127.0.0.1:8080/
@@ -273,8 +305,9 @@ cd ~/projects/aftergift-prototype && python3 -m http.server 8080 &
 # → 打开 http://127.0.0.1:8080/?api
 # → footer 应显示："当前：本地 FastAPI 联调模式"
 
-# 5. 验证发布表单（api 模式）
-# → 填写表单 → 提交 → 观察后端 aftergift_dev.db 中是否有新记录
+# 5. 验证搜索
+# → 搜索"灯" → 应返回星空投影灯
+# → 筛选"出售" → 应只显示 action_type=sell 的礼物
 
 # 6. 关闭服务
 fuser -k 8091/tcp; fuser -k 8080/tcp

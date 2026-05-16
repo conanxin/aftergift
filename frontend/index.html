@@ -110,6 +110,28 @@
       <h2 class="section-title">礼物故事流</h2>
       <p class="section-subtitle">每一件礼物，都曾是一段关系的见证</p>
 
+      <!-- Search Bar -->
+      <div class="search-bar" id="searchBar" role="search" aria-label="礼物搜索">
+        <div class="search-input-wrap">
+          <input
+            type="search"
+            id="searchInput"
+            class="search-input"
+            placeholder="搜索礼物、故事、情绪或关系类型"
+            aria-label="搜索关键词"
+            autocomplete="off"
+          />
+          <button class="search-btn" id="searchBtn" type="button" aria-label="搜索">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+            搜索
+          </button>
+          <button class="search-clear-btn" id="searchClearBtn" type="button" aria-label="清空搜索" style="display:none;">
+            清空
+          </button>
+        </div>
+        <p class="search-hint" id="searchHint" style="display:none;">正在寻找那些有故事的旧物……</p>
+      </div>
+
       <!-- Filter Tabs -->
       <div class="filter-tabs" role="tablist" aria-label="礼物筛选">
         <button class="filter-tab active" data-filter="all" role="tab" aria-selected="true" aria-controls="giftGrid">全部</button>

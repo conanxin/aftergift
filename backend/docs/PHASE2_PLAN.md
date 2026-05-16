@@ -193,6 +193,36 @@ TOKEN_EXPIRY_DAYS=***
 
 ---
 
+## Phase 2G：内容发现与搜索 ✅ 已完成
+
+**目标**：实现多维搜索与内容发现能力
+
+**交付物**：
+
+### 2G-1：搜索 API + 前端搜索 UI ✅ 已完成
+- [x] `GET /api/gifts` 增强：支持 q, emotion, action_type, relation_type, city_blur, page, limit, sort, order
+- [x] SQL 注入防护：sort/order 白名单校验
+- [x] 关键词搜索范围：title + category + story + story_title + price_or_exchange
+- [x] 分页返回：items, total, page, limit, total_pages, has_more, filters
+- [x] story_excerpt：120 字纯文本摘要（移除 HTML 标签）
+- [x] matched_fields：标记匹配到的字段
+- [x] 仅返回 status='published' 的内容
+- [x] 前端搜索框：Enter 触发、清空按钮、搜索图标
+- [x] 筛选标签与搜索词共存
+- [x] Static 模式：内存 filter + 分页
+- [x] API 模式：后端 SQL 查询 + 分页
+- [x] 测试 12/12 PASS
+- [x] 全量测试 PASS（67/67）
+- [x] 语法检查 PASS
+- [x] 文档更新：SEARCH_API.md, API_INTEGRATION.md, API_DESIGN.md
+
+### 2G-2：我的发布 / 我的收藏 🔲 待开始
+- [ ] `GET /api/gifts?author_id={me}`：当前用户发布的礼物
+- [ ] `GET /api/gifts?favorites_of={me}`：当前用户收藏的礼物
+- [ ] 前端"我的"页面
+
+---
+
 ## Phase 2F：Admin 审核台增强 + 举报队列 🔲 待开始
 
 **目标**：完善管理员工具，建立举报管理操作历史

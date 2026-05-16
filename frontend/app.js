@@ -10,12 +10,14 @@
   // ── State ──
   var gifts = [];
   var currentFilter = 'all';
+  var currentSearch = '';
   var nextTempId = 9000;
   var lastFocusedElement = null;
   var displayedCount = 8;       // initial visible cards
   var INITIAL_DISPLAY = 8;
   var MAX_DISPLAY = 100;
   var favorites = {};           // { id: true } synced with localStorage
+  var searchMeta = { total: 0, page: 1, limit: 12, total_pages: 0, has_more: false };
 
   // ── Story Tip Prompts ──
   var STORY_TIPS = [
@@ -46,6 +48,10 @@
   var loadMoreBtn   = document.getElementById('loadMoreBtn');
   var aiReviewPanel = document.getElementById('aiReviewPanel');
   var storyQualityHint = document.getElementById('storyQualityHint');
+  var searchInput   = document.getElementById('searchInput');
+  var searchBtn     = document.getElementById('searchBtn');
+  var searchClearBtn = document.getElementById('searchClearBtn');
+  var searchHint    = document.getElementById('searchHint');
 
   // ── Init ──
   document.addEventListener('DOMContentLoaded', function () {
@@ -111,12 +117,20 @@
   function loadGifts() {
     // Detect mode from global set by inline <script> in index.html
     var mode = window.__AF_MODE || 'static';
+    var params = buildListParams();
 
     if (mode === 'api' && window.AftergiftAPI) {
       // API mode: call FastAPI backend
-      window.AftergiftAPI.listGifts({}, []).then(function (result) {
+      window.AftergiftAPI.listGifts(params, []).then(function (result) {
         gifts = result.items;
-        showModeIndicator('api', result.items.length);
+        searchMeta = {
+          total: result.total || 0,
+          page: result.page || 1,
+          limit: result.limit || 12,
+          total_pages: result.total_pages || 0,
+          has_more: result.has_more || false
+        };
+        showModeIndicator('api', result.total || result.items.length);
         renderGifts();
       }).catch(function () {
         // API unreachable: fall back to static data
@@ -127,18 +141,41 @@
       // Static mode: read local JSON
       loadStaticGifts();
       if (mode !== 'api') {
-        showModeIndicator('static', -1); // -1 = unknown count (loadGifts called before fetch)
+        showModeIndicator('static', -1);
       }
     }
+  }
+
+  function buildListParams() {
+    var params = {
+      q: currentSearch || undefined,
+      page: 1,
+      limit: 12
+    };
+    if (currentFilter !== 'all' && currentFilter !== 'favorites') {
+      params.action_type = currentFilter;
+    }
+    return params;
   }
 
   function loadStaticGifts() {
     fetch('./data/gifts.json')
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        gifts = data;
-        showModeIndicator('static', data.length);
-        renderGifts();
+        // Apply static search + filter locally
+        var params = buildListParams();
+        window.AftergiftAPI.listGifts(params, data).then(function (result) {
+          gifts = result.items;
+          searchMeta = {
+            total: result.total || 0,
+            page: result.page || 1,
+            limit: result.limit || 12,
+            total_pages: result.total_pages || 0,
+            has_more: result.has_more || false
+          };
+          showModeIndicator('static', result.total);
+          renderGifts();
+        });
       })
       .catch(function () {
         giftGrid.innerHTML = '<div class="empty-state"><p class="empty-state-line">无法加载礼物数据，请通过本地服务器打开（python3 -m http.server 8080）。</p></div>';
@@ -177,14 +214,19 @@
       emptyState.style.display = 'flex';
       var msgs = {
         all:       '这里还没有礼物故事。',
-        favorites: '你还没有收藏任何故事。<br>也许有些旧物，会在某个时刻与你相遇。',
+        favorites: '你还没有收藏任何故事。\u003cbr\u003e也许有些旧物，会在某个时刻与你相遇。',
         sell:      '这一类礼物暂时还没有故事。',
         exchange:  '这一类礼物暂时还没有故事。',
         giveaway:  '这一类礼物暂时还没有故事。',
         donate:    '这一类礼物暂时还没有故事。',
         keep:      '这一类礼物暂时还没有故事。'
       };
-      emptyStateLine.innerHTML = msgs[currentFilter] || '这一类礼物暂时还没有故事。';
+      // Override for search empty state
+      if (currentSearch) {
+        emptyStateLine.innerHTML = '没有找到匹配的礼物。也许换一个词，它会以另一种方式出现。';
+      } else {
+        emptyStateLine.innerHTML = msgs[currentFilter] || '这一类礼物暂时还没有故事。';
+      }
       if (loadMoreBtn) loadMoreBtn.style.display = 'none';
       return;
     }
@@ -932,16 +974,56 @@
 
     var mode = window.__AF_MODE || 'static';
     if (mode === 'api' && window.AftergiftAPI) {
-      // API mode: re-query with new filter
-      var filterParam = (filter === 'all' || filter === 'favorites') ? {} : { action_type: filter };
-      window.AftergiftAPI.listGifts(filterParam, []).then(function (result) {
+      // API mode: re-query with filter + preserved search
+      var params = buildListParams();
+      window.AftergiftAPI.listGifts(params, []).then(function (result) {
         gifts = result.items;
+        searchMeta = {
+          total: result.total || 0,
+          page: result.page || 1,
+          limit: result.limit || 12,
+          total_pages: result.total_pages || 0,
+          has_more: result.has_more || false
+        };
         renderGifts();
       }).catch(function () {
         showToast('无法加载筛选结果，请检查 API 连接');
       });
     } else {
-      renderGifts();
+      // Static mode: reload with filter + search
+      loadStaticGifts();
+    }
+  }
+
+  // ── Search ──
+  function handleSearch() {
+    var q = searchInput ? searchInput.value.trim() : '';
+    currentSearch = q;
+    displayedCount = INITIAL_DISPLAY;
+    if (searchClearBtn) {
+      searchClearBtn.style.display = q ? '' : 'none';
+    }
+    if (searchHint) {
+      searchHint.style.display = q ? '' : 'none';
+    }
+    loadGifts();
+  }
+
+  function handleSearchClear() {
+    if (searchInput) {
+      searchInput.value = '';
+    }
+    currentSearch = '';
+    displayedCount = INITIAL_DISPLAY;
+    if (searchClearBtn) searchClearBtn.style.display = 'none';
+    if (searchHint) searchHint.style.display = 'none';
+    loadGifts();
+  }
+
+  function handleSearchKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
     }
   }
 
@@ -992,6 +1074,10 @@
     filterTabs.forEach(function (tab) {
       tab.addEventListener('click', handleFilterClick);
     });
+
+    if (searchBtn) searchBtn.addEventListener('click', handleSearch);
+    if (searchClearBtn) searchClearBtn.addEventListener('click', handleSearchClear);
+    if (searchInput) searchInput.addEventListener('keydown', handleSearchKeydown);
 
     emotionBtns.forEach(function (btn) {
       btn.addEventListener('click', handleEmotionClick);

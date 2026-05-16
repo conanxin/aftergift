@@ -1,7 +1,8 @@
 """
 Aftergift Backend - Gifts Router
-Phase 2B | GET /api/gifts, GET /api/gifts/{id}, POST /api/gifts
+Phase 2B  | GET /api/gifts, GET /api/gifts/{id}, POST /api/gifts
 Phase 2E-3 | Review log redaction applied before persistence
+Phase 2G-1 | Search, filter, pagination, sort with SQL injection defense
 """
 
 import uuid
@@ -36,22 +37,100 @@ def _build_action_label(action_type: str) -> str:
     return labels.get(action_type, action_type)
 
 
+# ── Search helpers ───────────────────────────────────────────────────────────
+
+# Whitelist for sort / order to prevent SQL injection
+_SORT_WHITELIST = {"created_at", "title", "emotion", "action_type"}
+_ORDER_WHITELIST = {"asc", "desc"}
+
+
+def _build_search_clause(q: str | None) -> tuple[str, list]:
+    """
+    Build parameterized search clause for gifts + gift_stories.
+    Returns (sql_fragment, params).
+    """
+    if not q or not q.strip():
+        return "", []
+    term = q.strip()
+    # Search across: title, category, relation_type, relation_label,
+    # action_type, emotion, city_blur, short_story, full_story
+    clause = """ AND (
+        g.title LIKE ? OR g.category LIKE ? OR g.relation_type LIKE ?
+        OR g.relation_label LIKE ? OR g.action_type LIKE ?
+        OR g.emotion LIKE ? OR g.city_blur LIKE ?
+        OR gs.short_story LIKE ? OR gs.full_story LIKE ?
+    )"""
+    pattern = f"%{term}%"
+    params = [pattern] * 9
+    return clause, params
+
+
+def _build_matched_fields(row, q: str | None) -> list[str]:
+    """Determine which fields matched the search term (lightweight)."""
+    if not q or not q.strip():
+        return []
+    term = q.strip().lower()
+    matched = []
+    checks = [
+        ("title", row["title"] or ""),
+        ("category", row["category"] or ""),
+        ("relation_type", row["relation_type"] or ""),
+        ("relation_label", row["relation_label"] or ""),
+        ("action_type", row["action_type"] or ""),
+        ("emotion", row["emotion"] or ""),
+        ("city_blur", row["city_blur"] or ""),
+        ("short_story", row["short_story"] or ""),
+        ("full_story", row["full_story"] or ""),
+    ]
+    for field, value in checks:
+        if term in value.lower():
+            matched.append(field)
+    return matched
+
+
+def _excerpt(text: str | None, max_len: int = 120) -> str:
+    """Return plain-text excerpt, no HTML."""
+    if not text:
+        return ""
+    t = text.strip()
+    if len(t) <= max_len:
+        return t
+    return t[:max_len] + "……"
+
+
+# ── List gifts (Phase 2G-1 enhanced) ─────────────────────────────────────────
+
 @router.get("")
 def list_gifts(
-    action_type: str | None = Query(None, description="筛选：sell/exchange/giveaway/donate/keep"),
+    q: str | None = Query(None, description="关键词搜索"),
     emotion: str | None = Query(None, description="筛选情绪标签"),
+    action_type: str | None = Query(None, description="筛选：sell/exchange/giveaway/donate/keep"),
+    relation_type: str | None = Query(None, description="筛选关系类型"),
+    city_blur: str | None = Query(None, description="模糊城市"),
     page: int = Query(1, ge=1),
-    limit: int = Query(8, ge=1, le=50),
+    limit: int = Query(12, ge=1, le=100),
+    sort: str = Query("created_at", description="排序字段"),
+    order: str = Query("desc", description="asc / desc"),
 ):
-    """获取公开礼物列表（仅 published 状态）"""
+    """
+    获取公开礼物列表（仅 published 状态）。
+    Phase 2G-1 增强：支持关键词搜索、多维度筛选、分页、排序。
+    """
+    # Validate sort/order against whitelist
+    if sort not in _SORT_WHITELIST:
+        sort = "created_at"
+    if order not in _ORDER_WHITELIST:
+        order = "desc"
+
     conn = get_connection()
     offset = (page - 1) * limit
 
-    # Build query
+    # Build base SQL
     sql = """
-        SELECT g.id, g.title, g.category, g.relation_label, g.action_type,
-               g.emotion, gs.short_story as excerpt, g.price_or_exchange,
-               g.status, g.is_anonymous, u.anonymous_nickname, g.created_at
+        SELECT g.id, g.title, g.category, g.relation_type, g.relation_label,
+               g.action_type, g.emotion, gs.short_story, gs.full_story,
+               g.price_or_exchange, g.status, g.is_anonymous,
+               u.anonymous_nickname, g.created_at, g.city_blur
         FROM gifts g
         JOIN users u ON g.user_id = u.id
         LEFT JOIN gift_stories gs ON g.id = gs.gift_id
@@ -60,26 +139,51 @@ def list_gifts(
     count_sql = """
         SELECT COUNT(*)
         FROM gifts g
+        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
         WHERE g.status = 'published'
     """
     params = []
+    count_params = []
 
+    # Search clause
+    search_clause, search_params = _build_search_clause(q)
+    if search_clause:
+        sql += search_clause
+        count_sql += search_clause
+        params.extend(search_params)
+        count_params.extend(search_params)
+
+    # Filters
     if action_type:
         sql += " AND g.action_type = ?"
         count_sql += " AND g.action_type = ?"
         params.append(action_type)
+        count_params.append(action_type)
 
     if emotion:
         sql += " AND g.emotion = ?"
         count_sql += " AND g.emotion = ?"
         params.append(emotion)
+        count_params.append(emotion)
+
+    if relation_type:
+        sql += " AND g.relation_type = ?"
+        count_sql += " AND g.relation_type = ?"
+        params.append(relation_type)
+        count_params.append(relation_type)
+
+    if city_blur:
+        sql += " AND g.city_blur LIKE ?"
+        count_sql += " AND g.city_blur LIKE ?"
+        params.append(f"%{city_blur}%")
+        count_params.append(f"%{city_blur}%")
 
     # Total count
-    cur = conn.execute(count_sql, params)
+    cur = conn.execute(count_sql, count_params)
     total = cur.fetchone()[0]
 
     # Page items
-    sql += " ORDER BY g.created_at DESC LIMIT ? OFFSET ?"
+    sql += f" ORDER BY g.{sort} {order.upper()} LIMIT ? OFFSET ?"
     params.extend([limit, offset])
     cur = conn.execute(sql, params)
     rows = cur.fetchall()
@@ -87,32 +191,52 @@ def list_gifts(
 
     items = []
     for row in rows:
+        matched = _build_matched_fields(row, q)
+        story_text = row["short_story"] or row["full_story"] or ""
         items.append({
             "id": row["id"],
             "title": row["title"],
             "category": row["category"],
+            "relation_type": row["relation_type"],
             "relation_label": row["relation_label"],
             "action_type": row["action_type"],
             "action_label": _build_action_label(row["action_type"]),
             "emotion": row["emotion"],
-            "excerpt": row["excerpt"],
+            "excerpt": row["short_story"],
+            "story_excerpt": _excerpt(story_text),
             "price_or_exchange": row["price_or_exchange"],
             "status": row["status"],
             "is_anonymous": bool(row["is_anonymous"]),
             "anonymous_nickname": row["anonymous_nickname"],
-            "created_at": row["created_at"]
+            "created_at": row["created_at"],
+            "city_blur": row["city_blur"],
+            "matched_fields": matched if q else None,
+            "search_highlight": None,  # No HTML highlight to avoid XSS
         })
 
-    has_more = offset + limit < total
+    total_pages = (total + limit - 1) // limit if limit > 0 else 0
+    has_more = page < total_pages
 
     return wrap({
         "items": items,
-        "pagination": {
-            "page": page, "limit": limit, "total": total,
-            "has_more": has_more
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+        "has_more": has_more,
+        "filters": {
+            "q": q,
+            "emotion": emotion,
+            "action_type": action_type,
+            "relation_type": relation_type,
+            "city_blur": city_blur,
+            "sort": sort,
+            "order": order,
         }
     })
 
+
+# ── Get gift detail ──────────────────────────────────────────────────────────
 
 @router.get("/{gift_id}")
 def get_gift(gift_id: str):
@@ -165,6 +289,8 @@ def get_gift(gift_id: str):
         "updated_at": row["updated_at"]
     })
 
+
+# ── Create gift ──────────────────────────────────────────────────────────────
 
 @router.post("")
 def create_gift(
