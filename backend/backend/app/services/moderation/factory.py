@@ -83,12 +83,11 @@ def get_moderation_provider() -> ModerationProvider:
             )
             selected = MockModerationProvider()
         else:
-            # TODO (Phase 2E-4): Enable real OpenAI provider when credentials configured
+            # Phase 2E-4: Enable real OpenAI provider when credentials configured
             logger.info(
-                "[ModerationFactory] OpenAI provider selected but real AI not yet "
-                "implemented (Phase 2E-4). Falling back to mock."
+                "[ModerationFactory] OpenAI provider selected with real AI enabled."
             )
-            selected = MockModerationProvider()
+            selected = OpenAIModerationProvider()
 
     elif provider_name == "baidu":
         if not BAIDU_CONTENT_REVIEW_API_KEY:

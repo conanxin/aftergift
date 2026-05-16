@@ -58,18 +58,35 @@ Aftergift 的内容审核需要满足以下要求：
 - **输出**：`risk_level` (safe/caution/high_risk) + `issues` + `suggestions` + `quality_notes`
 - **provider 字段**：`"mock"`
 
-### 3.2 OpenAIModerationProvider（骨架）
+### 3.2 OpenAIModerationProvider（沙箱实现）
 
 - **文件**：`services/moderation/openai_provider.py`
-- **当前状态**：SKELETON，不调用真实 API
+- **当前状态**：Phase 2E-4 沙箱实现 — 可调用真实 OpenAI Moderation API，但默认不启用
+- **启用条件**（需同时满足）：
+  1. `AFTERGIFT_MODERATION_PROVIDER=openai`
+  2. `AFTERGIFT_ENABLE_REAL_AI_REVIEW=true`
+  3. `OPENAI_API_KEY` 非空且非占位符
+- **实现细节**：
+  - 使用 Python 标准库 `urllib` 调用 OpenAI Moderation API（无需 openai SDK）
+  - 发送前自动调用 `redact_sensitive_text()` 脱敏（Phase 2E-3）
+  - 支持 `omni-moderation-latest` 模型（可通过 `AFTERGIFT_OPENAI_MODERATION_MODEL` 配置）
+  - HTTP 超时默认 8 秒（可通过 `AFTERGIFT_OPENAI_TIMEOUT_SECONDS` 配置）
+- **分类映射**：
+  - `hate` / `harassment` / `violence` / `self-harm` / `sexual/minors` → `high_risk`
+  - `sexual` → `caution`
+  - `flagged=false` → `safe`
+- **合并策略**：OpenAI 结果与 Mock 结果合并
+  - `risk_level` 取二者更高者
+  - `issues` / `suggestions` 合并
+  - `provider` 字段为 `"openai+mock"`
+  - `quality_notes` 合并，并标记 `local_rules_applied=true`
 - **fallback 条件**：
-  - `ENABLE_REAL_AI_REVIEW != true`
-  - `OPENAI_API_KEY` 未设置
-  - 任何异常
-- **未来实现（Phase 2E-4）**：
-  - 调用 OpenAI Moderation API
-  - 映射 OpenAI 分类到 Aftergift risk_level
-- **provider 字段**：`"openai"`
+  - 网络错误 → mock + `provider_error` issue
+  - 401/403 → mock + auth error 提示
+  - 429 → mock + rate limit 提示
+  - JSON 解析错误 → mock
+  - 任何异常 → mock（绝不崩溃）
+- **provider 字段**：`"openai"`（纯 OpenAI）或 `"openai+mock"`（合并后）
 
 ### 3.3 BaiduModerationProvider（骨架）
 
@@ -93,10 +110,19 @@ AFTERGIFT_MODERATION_PROVIDER=mock
 AFTERGIFT_ENABLE_REAL_AI_REVIEW=false
 
 # OpenAI API Key（仅 provider=openai 时需要）
+# 生产环境通过环境变量设置，不要写入代码或文档
 OPENAI_API_KEY=
 
+# OpenAI Moderation 模型（默认 omni-moderation-latest）
+AFTERGIFT_OPENAI_MODERATION_MODEL=omni-moderation-latest
+
+# OpenAI API 超时（秒，默认 8）
+AFTERGIFT_OPENAI_TIMEOUT_SECONDS=8
+
 # 百度内容审核 API Key（仅 provider=baidu 时需要）
+# 生产环境通过环境变量设置，不要写入代码或文档
 BAIDU_CONTENT_REVIEW_API_KEY=
+```
 ```
 
 ### Fallback 规则
@@ -106,7 +132,7 @@ BAIDU_CONTENT_REVIEW_API_KEY=
 | mock | 任意 | 任意 | mock ✅ |
 | openai | false | 任意 | mock（安全开关关闭） |
 | openai | true | 空 | mock（key 缺失） |
-| openai | true | 有 | openai（Phase 2E-4） |
+| openai | true | 有 | **openai+mock** ✅ (Phase 2E-4) |
 | baidu | true | 有 | baidu（未来） |
 | unknown | 任意 | 任意 | mock |
 
@@ -216,7 +242,7 @@ backend/backend/app/services/moderation/
 ├── __init__.py          # 包导出
 ├── base.py              # ModerationProvider 协议 + dataclass
 ├── mock_provider.py     # 本地规则引擎（默认）
-├── openai_provider.py   # OpenAI skeleton
+├── openai_provider.py   # OpenAI 沙箱实现（Phase 2E-4）
 ├── baidu_provider.py    # 百度 skeleton
 └── factory.py           # Provider 工厂 + fallback 逻辑
 
@@ -228,4 +254,19 @@ backend/backend/app/services/
 
 ---
 
-*最后更新：Phase 2E-2 完成后（2026-05-16）。*
+## 10. Phase 2E-4 增强：OpenAI Provider 沙箱
+
+Phase 2E-4 实现了 OpenAI Moderation Provider 的完整沙箱逻辑：
+
+1. **标准库 HTTP**：使用 `urllib.request` 调用 OpenAI API，无需额外依赖
+2. **输入脱敏**：发送前调用 `redact_sensitive_text()`（Phase 2E-3）
+3. **分类映射**：OpenAI `hate/harassment/violence/self-harm/sexual/minors` → `high_risk`
+4. **结果合并**：OpenAI + Mock 合并，`provider="openai+mock"`
+5. **错误兜底**：任何 API 错误自动 fallback 到 Mock，不崩溃
+6. **配置项**：`AFTERGIFT_OPENAI_MODERATION_MODEL` / `AFTERGIFT_OPENAI_TIMEOUT_SECONDS`
+
+详见：`backend/docs/OPENAI_PROVIDER.md`
+
+---
+
+*最后更新：Phase 2E-4 完成后（2026-05-16）。*

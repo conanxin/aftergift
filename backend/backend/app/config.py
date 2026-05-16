@@ -34,6 +34,14 @@ OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 BAIDU_CONTENT_REVIEW_API_KEY: str = os.getenv("BAIDU_CONTENT_REVIEW_API_KEY", "")
 # Note: ENABLE_REAL_AI_REVIEW is defined above
 
+# ── Phase 2E-4: OpenAI Moderation Provider ──────────────────────────────────
+OPENAI_MODERATION_MODEL: str = os.getenv(
+    "AFTERGIFT_OPENAI_MODERATION_MODEL", "omni-moderation-latest"
+)
+OPENAI_TIMEOUT_SECONDS: float = float(
+    os.getenv("AFTERGIFT_OPENAI_TIMEOUT_SECONDS", "8")
+)
+
 # ── Derived flags ───────────────────────────────────────────────────────────
 
 IS_DEV: bool = ENV == "development"

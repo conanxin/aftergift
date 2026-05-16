@@ -16,7 +16,7 @@
 | Phase 2E-1 | PyJWT Token 升级 | 100% | **本阶段已完成** — HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
 | Phase 2E-2 | Moderation Provider 抽象 | 100% | **本阶段已完成** — Provider 抽象层、Mock/OpenAI/Baidu 可切换 |
 | Phase 2E-3 | 审核日志脱敏 | 100% | **本阶段已完成** — review_logs 自动脱敏，Admin 队列脱敏展示 |
-| Phase 2E-4 | OpenAI Provider 沙箱 | 0% | 真实 OpenAI Moderation API 接入（需 API key + ENABLE 开关） |
+| Phase 2E-4 | OpenAI Provider 沙箱 | 100% | **本阶段已完成** — 真实 OpenAI Moderation API 沙箱接入，默认不启用，fallback mock |
 | Phase 2F | Admin 增强 + 举报队列 | 0% | |
 
 ---
@@ -234,15 +234,16 @@ BAIDU_SECRET_KEY=
 
 ```
 Phase 2E（当前推荐）
-  ├── 2E-1 PyJWT 升级
-  ├── 2E-2 Moderation Provider 抽象
-  └── 2E-3 审核日志脱敏
+  ├── 2E-1 PyJWT 升级 ✅
+  ├── 2E-2 Moderation Provider 抽象 ✅
+  ├── 2E-3 审核日志脱敏 ✅
+  └── 2E-4 OpenAI Provider 沙箱 ✅
 
-Phase 2F
+Phase 2F（下一步推荐）
   ├── 2F-1 审核队列增强
   ├── 2F-2 举报管理队列
   └── 2F-3 Admin 操作历史
-
+```
 Phase 2G
   ├── 数据备份
   ├── 种子用户内测

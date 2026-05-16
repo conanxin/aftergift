@@ -165,15 +165,27 @@
 - [x] gift_stories 保留原文（供用户查看和 Admin 审核）
 - [x] 测试 11/11 PASS
 
-### 2E-4：OpenAI Provider 沙箱实现 🔲 待开始
+### 2E-4：OpenAI Provider 沙箱实现 ✅ 已完成
 ```
 MODERATION_PROVIDER=mock      # mock | openai | baidu
-OPENAI_API_KEY=               # OpenAI API Key（仅 provider=openai 时需要）
-BAIDU_API_KEY=                # 百度 API Key
-JWT_SECRET=                   # HS256 密钥（生产必须更换）
+OPENAI_API_KEY= OpenAI API Key（仅 provider=openai 时需要）
+BAIDU_API_KEY=*** 百度 API Key
+JWT_SECRET=*** HS256 密钥（生产必须更换）
 JWT_ALGORITHM=HS256
-TOKEN_EXPIRY_DAYS=7
+TOKEN_EXPIRY_DAYS=***
 ```
+
+**2E-4 交付物**：
+- [x] `openai_provider.py` 沙箱实现（标准库 urllib，无额外依赖）
+- [x] 输入脱敏：调用 `redact_sensitive_text()` 后再发送
+- [x] OpenAI 分类映射：`hate/harassment/violence/self-harm/sexual/minors` → `high_risk`
+- [x] 结果合并：OpenAI + Mock，`provider="openai+mock"`
+- [x] 错误兜底：网络/401/429/5xx/JSON 错误均 fallback mock
+- [x] 配置项：`AFTERGIFT_OPENAI_MODERATION_MODEL` / `AFTERGIFT_OPENAI_TIMEOUT_SECONDS`
+- [x] `config.py` / `.env.example` 更新
+- [x] `factory.py` 启用真实 OpenAI provider（条件满足时）
+- [x] 测试 11/11 PASS（mock urlopen，不调用真实 API）
+- [x] 全部现有测试仍 PASS（42/42）
 
 **风险**：
 - JWT secret 必须强随机，开发期可测试，生产必须更换
@@ -283,7 +295,7 @@ Phase 2A  ✅ 沙箱蓝图
 Phase 2B  ✅ FastAPI 骨架
 Phase 2C  ✅ SQLite MVP + API 联调
 Phase 2D  ✅ 匿名身份 + Admin 审核 UI
-Phase 2E  ✅ PyJWT 升级 + Moderation Provider 抽象 + 审核日志脱敏
+Phase 2E  ✅ PyJWT 升级 + Moderation Provider 抽象 + 审核日志脱敏 + OpenAI Provider 沙箱
 Phase 2F  🔲 Admin 增强 + 举报队列
 Phase 2G  🔲 小范围本地内测
 Phase 3A  🔲 社区功能（收藏、评论、私信）
