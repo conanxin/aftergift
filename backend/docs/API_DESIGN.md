@@ -227,31 +227,41 @@
 
 ### 2.5 POST /api/gifts/{id}/favorite
 
-**用途**：收藏礼物
+**用途**：收藏礼物（Phase 2J-1 幂等化）
 
-**权限**：需要登录（手机号 HASH）
+**权限**：需要 Bearer Token（无 token → 401）
 
-**路径参数**：
-- `id`：礼物 UUID
+**幂等语义**：
+- 首次收藏：HTTP 201，返回 `favorite_id`
+- 重复收藏：HTTP 200，`is_favorited=true`，`favorite_count` 不变
+
+**状态过滤**：以下状态不允许收藏 → 422
+- `archived`、`rejected`、`pending_review`、`needs_edit`、`draft`
 
 **响应**：
 ```json
 {
-  "code": 200,
+  "code": 201,
   "message": "已收藏这个故事",
   "data": {
-    "favorite_id": "fav-uuid-001",
-    "gift_id": "gift-uuid-001"
+    "favorite_id": "fav-c83955e1",
+    "gift_id": "gift-uuid-001",
+    "is_favorited": true,
+    "favorite_count": 1
   }
 }
 ```
 
-**错误**（已收藏）：
+**重复收藏响应**（HTTP 200）：
 ```json
 {
-  "code": 409,
+  "code": 200,
   "message": "已经收藏过了",
-  "data": null
+  "data": {
+    "gift_id": "gift-uuid-001",
+    "is_favorited": true,
+    "favorite_count": 1
+  }
 }
 ```
 
@@ -259,25 +269,51 @@
 
 ### 2.6 DELETE /api/gifts/{id}/favorite
 
-**用途**：取消收藏
+**用途**：取消收藏（Phase 2J-1 幂等化）
 
-**权限**：需要登录
+**权限**：需要 Bearer Token（无 token → 401）
 
-**路径参数**：
-- `id`：礼物 UUID
+**幂等语义**：
+- 首次取消：HTTP 200
+- 重复取消（从未收藏）：HTTP 200，`is_favorited=false`，`favorite_count: 0`
 
 **响应**：
 ```json
 {
   "code": 200,
   "message": "已取消收藏",
-  "data": null
+  "data": {
+    "gift_id": "gift-uuid-001",
+    "is_favorited": false,
+    "favorite_count": 0
+  }
 }
 ```
 
 ---
 
-### 2.7 POST /api/gifts/{id}/report
+### 2.7 GET /api/gifts（扩展）
+
+**新增字段**（需 Bearer Token）：
+- `is_favorited`：当前用户是否收藏该礼物
+- `favorite_count`：该礼物收藏总数
+
+**新增 Query 参数**：
+| 参数 | 说明 |
+|------|------|
+| `favorites_of=me` | 返回当前用户收藏的所有礼物（需 Bearer Token） |
+
+---
+
+### 2.8 GET /api/gifts/{id}（扩展）
+
+**新增字段**（需 Bearer Token）：
+- `is_favorited`：当前用户是否收藏该礼物
+- `favorite_count`：该礼物收藏总数
+
+---
+
+### 2.9 POST /api/gifts/{id}/report
 
 **用途**：举报礼物
 
