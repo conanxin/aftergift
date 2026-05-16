@@ -256,7 +256,7 @@ AftergiftAPI.clearStoredToken()     // localStorage.removeItem('aftergift_token'
 
 ---
 
-## 11. Phase 2G-1 搜索功能
+## 11. Phase 2G-1 搜索功能 ✅ 已完成
 
 ### 新增 API 能力
 
@@ -288,7 +288,43 @@ AftergiftAPI.clearStoredToken()     // localStorage.removeItem('aftergift_token'
 
 ---
 
-## 12. 快速验证清单
+## 12. Phase 2G-2 我的发布 / 我的收藏 ✅ 已完成
+
+### 新增 API 能力
+
+| 参数 | 说明 | 要求 | 示例 |
+|------|------|------|------|
+| `mine=true` | 仅返回当前用户发布的礼物 | Bearer Token | `GET /api/gifts?mine=true` |
+| `favorites_of=me` | 仅返回当前用户收藏的礼物 | Bearer Token | `GET /api/gifts?favorites_of=me` |
+
+### 行为差异
+
+| 场景 | mine=true | favorites_of=me |
+|------|-----------|-----------------|
+| 无 Token | 401 Unauthorized | 401 Unauthorized |
+| 返回状态 | 全部状态（含审核中/驳回） | 仅 published |
+| 额外字段 | `is_mine=true` | `is_favorited=true`, `favorite_created_at` |
+| 支持搜索 | ✅ `q`, `emotion`, `action_type` | ✅ `q`, `emotion`, `action_type` |
+
+### 前端适配
+
+- **Static 模式**：隐藏"我的发布"和"我的收藏"筛选标签
+- **API 模式**：显示上述标签，未登录点击触发 Toast"请先创建匿名身份"
+- 卡片底部显示状态 badge（已发布 / 待审核 / 需修改 / 已拒绝 / 草稿 / 已归档）
+- "我的收藏"标签激活时显示收藏时间
+
+### 字段映射
+
+| 后端字段 | 前端展示 | 说明 |
+|----------|----------|------|
+| `is_mine` | 状态 badge | 用户自己发布的礼物标记 |
+| `is_favorited` | 收藏图标高亮 | 当前用户已收藏 |
+| `favorite_created_at` | 收藏时间 | 仅 favorites_of=me 时返回 |
+| `status` | 状态 badge | mine=true 时展示真实状态 |
+
+---
+
+## 13. 快速验证清单
 
 ```bash
 # 1. 启动后端
@@ -309,6 +345,10 @@ cd ~/projects/aftergift/frontend && python3 -m http.server 8080 &
 # → 搜索"灯" → 应返回星空投影灯
 # → 筛选"出售" → 应只显示 action_type=sell 的礼物
 
-# 6. 关闭服务
+# 6. 验证我的发布/收藏
+# → 创建匿名身份 → 发布礼物 → 点击"我的发布" → 应显示该礼物（含状态 badge）
+# → 收藏一个故事 → 点击"我的收藏" → 应显示该故事
+
+# 7. 关闭服务
 fuser -k 8091/tcp; fuser -k 8080/tcp
 ```

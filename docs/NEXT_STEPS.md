@@ -13,11 +13,13 @@
 | Phase 2B | FastAPI 骨架 | 100% | 所有 routers 实现，SQLite 数据库 |
 | Phase 2C | 前后端双模式联调 | 100% | static 模式（默认）+ API 模式（`?api=local`） |
 | Phase 2D | 匿名身份 + Admin UI | 100% | HMAC token、27 字段审核队列、Admin Review Panel |
-| Phase 2E-1 | PyJWT Token 升级 | 100% | **本阶段已完成** — HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
-| Phase 2E-2 | Moderation Provider 抽象 | 100% | **本阶段已完成** — Provider 抽象层、Mock/OpenAI/Baidu 可切换 |
-| Phase 2E-3 | 审核日志脱敏 | 100% | **本阶段已完成** — review_logs 自动脱敏，Admin 队列脱敏展示 |
-| Phase 2E-4 | OpenAI Provider 沙箱 | 100% | **本阶段已完成** — 真实 OpenAI Moderation API 沙箱接入，默认不启用，fallback mock |
-| Phase 2F | Admin 增强 + 举报队列 | 0% | |
+| Phase 2E-1 | PyJWT Token 升级 | 100% | HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
+| Phase 2E-2 | Moderation Provider 抽象 | 100% | Provider 抽象层、Mock/OpenAI/Baidu 可切换 |
+| Phase 2E-3 | 审核日志脱敏 | 100% | review_logs 自动脱敏，Admin 队列脱敏展示 |
+| Phase 2E-4 | OpenAI Provider 沙箱 | 100% | 真实 OpenAI Moderation API 沙箱接入，默认不启用，fallback mock |
+| Phase 2F | Admin 增强 + 举报队列 | 100% | 审核队列增强、举报管理、Admin 操作历史 |
+| Phase 2G-1 | 搜索 API + 前端搜索 UI | 100% | 多维搜索、筛选、分页、排序 |
+| Phase 2G-2 | 我的发布 / 我的收藏 | 100% | mine=true、favorites_of=me、前端筛选标签、状态 badge |
 
 ---
 
@@ -233,31 +235,40 @@ BAIDU_SECRET_KEY=
 ## 8. 执行顺序
 
 ```
-Phase 2E（当前推荐）
+Phase 2E（安全基础设施）
   ├── 2E-1 PyJWT 升级 ✅
   ├── 2E-2 Moderation Provider 抽象 ✅
   ├── 2E-3 审核日志脱敏 ✅
   └── 2E-4 OpenAI Provider 沙箱 ✅
 
-Phase 2F（下一步推荐）
-  ├── 2F-1 审核队列增强
-  ├── 2F-2 举报管理队列
-  └── 2F-3 Admin 操作历史
-```
-Phase 2G
-  ├── 数据备份
-  ├── 种子用户内测
-  └── 风险复盘
+Phase 2F（Admin 增强）
+  ├── 2F-1 审核队列增强 ✅
+  ├── 2F-2 举报管理队列 ✅
+  └── 2F-3 Admin 操作历史 ✅
+
+Phase 2G（内容发现）
+  ├── 2G-1 搜索 API + 前端搜索 UI ✅
+  └── 2G-2 我的发布 / 我的收藏 ✅
+
+Phase 2H（个人内容管理增强）🔲 下一步推荐
+  ├── 编辑已发布/退回的故事
+  ├── 删除自己的故事
+  └── 重新提交审核
+
+Phase 2I（基础内容推荐）🔲 候选
+  ├── 按情绪/关系类型推荐相似故事
+  ├── 热门故事排序
+  └── 新发布故事流
 
 Phase 3A（社区功能）
-  ├── 收藏故事
+  ├── 收藏故事 ✅（已完成）
   ├── 匿名评论
   └── 匿名私信
 
 Phase 3B（交易功能）
-  └── （需完成 Phase 2E-F + 完整审核机制后再评估）
+  └── （需完成 Phase 2E-I + 完整审核机制后再评估）
 ```
 
 ---
 
-*文档更新：2026-05-16*
+*文档更新：Phase 2G-2 完成后（2026-05-16）。*

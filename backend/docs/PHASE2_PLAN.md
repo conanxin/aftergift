@@ -216,37 +216,50 @@ TOKEN_EXPIRY_DAYS=***
 - [x] 语法检查 PASS
 - [x] 文档更新：SEARCH_API.md, API_INTEGRATION.md, API_DESIGN.md
 
-### 2G-2：我的发布 / 我的收藏 🔲 待开始
-- [ ] `GET /api/gifts?author_id={me}`：当前用户发布的礼物
-- [ ] `GET /api/gifts?favorites_of={me}`：当前用户收藏的礼物
-- [ ] 前端"我的"页面
+### 2G-2：我的发布 / 我的收藏 ✅ 已完成
+- [x] `GET /api/gifts?mine=true`：当前用户发布的礼物（需 Bearer Token，返回全部状态）
+- [x] `GET /api/gifts?favorites_of=me`：当前用户收藏的礼物（需 Bearer Token，仅 published）
+- [x] 前端"我的发布 / 我的收藏"筛选标签（api 模式显示，static 模式隐藏）
+- [x] 未登录 Toast 拦截
+- [x] 状态 badge 样式（已发布 / 待审核 / 需修改 / 已拒绝 / 草稿 / 已归档）
+- [x] 收藏时间显示
+- [x] `is_mine` / `is_favorited` / `favorite_created_at` 字段
+- [x] 测试 12/12 PASS
+- [x] 全量测试 PASS（79/79）
+- [x] 语法检查 PASS
+- [x] 文档更新：MY_GIFTS.md, API_DESIGN.md, API_INTEGRATION.md, PHASE2_PLAN.md
+
+### 2G-3：基础内容推荐 / 热门故事 🔲 待开始
+- [ ] 按情绪/关系类型推荐相似故事
+- [ ] 热门故事排序（收藏数/浏览数）
+- [ ] 新发布故事流
 
 ---
 
-## Phase 2F：Admin 审核台增强 + 举报队列 🔲 待开始
+## Phase 2F：Admin 审核台增强 + 举报队列 ✅ 已完成
 
 **目标**：完善管理员工具，建立举报管理操作历史
 
 **交付物**：
 
-### 2F-1：Admin 审核队列增强
-- [ ] `GET /api/admin/reviews` 增加筛选条件（status / emotion / date_range）
-- [ ] `GET /api/admin/reviews` 增加排序（created_at / risk_score）
-- [ ] 分页支持（limit / offset）
-- [ ] `review_notes` 字段：管理员可写审核备注
+### 2F-1：Admin 审核队列增强 ✅ 已完成
+- [x] `GET /api/admin/reviews` 增加筛选条件（status / emotion / date_range）
+- [x] `GET /api/admin/reviews` 增加排序（created_at / risk_score）
+- [x] 分页支持（limit / offset）
+- [x] `review_notes` 字段：管理员可写审核备注
 
-### 2F-2：举报管理队列
-- [ ] `GET /api/admin/reports`：举报列表（status / gift_id 筛选）
-- [ ] `PATCH /api/admin/reports/{id}`：处理举报（dismiss / warn / hide_gift）
-- [ ] 举报人匿名处理（不暴露举报人身份）
-- [ ] 重复举报去重（同一 gift_id + reporter_id）
+### 2F-2：举报管理队列 ✅ 已完成
+- [x] `GET /api/admin/reports`：举报列表（status / gift_id 筛选）
+- [x] `PATCH /api/admin/reports/{id}`：处理举报（dismiss / warn / hide_gift）
+- [x] 举报人匿名处理（不暴露举报人身份）
+- [x] 重复举报去重（同一 gift_id + reporter_id）
 
-### 2F-3：Admin 操作历史
-- [ ] `GET /api/admin/actions`：查看 admin_actions 历史
-- [ ] 记录管理员 ID、时间戳、操作类型、目标礼物/举报 ID
-- [ ] 支持按 admin_id 和时间范围筛选
+### 2F-3：Admin 操作历史 ✅ 已完成
+- [x] `GET /api/admin/actions`：查看 admin_actions 历史
+- [x] 记录管理员 ID、时间戳、操作类型、目标礼物/举报 ID
+- [x] 支持按 admin_id 和时间范围筛选
 
-### 2F-4：申诉处理（可选）
+### 2F-4：申诉处理（可选）🔲 待开始
 - [ ] 用户对 `rejected` / `needs_edit` 状态发起申诉
 - [ ] 申诉记录写入 `appeals` 表
 - [ ] Admin 审核申诉

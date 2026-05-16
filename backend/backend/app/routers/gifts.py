@@ -18,7 +18,7 @@ from app.schemas import (
 )
 from app.services import review_service
 from app.services.anonymize_service import redact_sensitive_text, summarize_redactions
-from app.auth import _require_auth
+from app.auth import _require_auth, get_bearer_token, decode_access_token
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
 
@@ -98,23 +98,27 @@ def _excerpt(text: str | None, max_len: int = 120) -> str:
     return t[:max_len] + "……"
 
 
-# ── List gifts (Phase 2G-1 enhanced) ─────────────────────────────────────────
+# ── List gifts (Phase 2G-1 enhanced, Phase 2G-2 mine/favorites) ──────────────
 
 @router.get("")
 def list_gifts(
+    request: Request,
     q: str | None = Query(None, description="关键词搜索"),
     emotion: str | None = Query(None, description="筛选情绪标签"),
     action_type: str | None = Query(None, description="筛选：sell/exchange/giveaway/donate/keep"),
     relation_type: str | None = Query(None, description="筛选关系类型"),
     city_blur: str | None = Query(None, description="模糊城市"),
+    mine: bool = Query(False, description="仅返回当前用户发布的礼物（需登录）"),
+    favorites_of: str | None = Query(None, description="筛选收藏：me=当前用户（需登录）"),
     page: int = Query(1, ge=1),
     limit: int = Query(12, ge=1, le=100),
     sort: str = Query("created_at", description="排序字段"),
     order: str = Query("desc", description="asc / desc"),
 ):
     """
-    获取公开礼物列表（仅 published 状态）。
-    Phase 2G-1 增强：支持关键词搜索、多维度筛选、分页、排序。
+    获取礼物列表。
+    Phase 2G-1: 支持关键词搜索、多维度筛选、分页、排序。
+    Phase 2G-2: 支持 mine=true（我的发布）和 favorites_of=me（我的收藏）。
     """
     # Validate sort/order against whitelist
     if sort not in _SORT_WHITELIST:
@@ -122,28 +126,81 @@ def list_gifts(
     if order not in _ORDER_WHITELIST:
         order = "desc"
 
+    # Resolve current user (optional — only needed for mine / favorites / is_mine / is_favorited)
+    current_user_id = None
+    token = get_bearer_token(request)
+    if token:
+        payload = decode_access_token(token)
+        if payload:
+            current_user_id = payload.get("sub")
+
+    # Auth gate for mine / favorites_of
+    if mine and not current_user_id:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 401, "message": "请先创建匿名身份，再查看你的礼物", "data": None}
+        )
+    if favorites_of == "me" and not current_user_id:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 401, "message": "请先创建匿名身份，再查看你的收藏", "data": None}
+        )
+
     conn = get_connection()
     offset = (page - 1) * limit
 
     # Build base SQL
-    sql = """
-        SELECT g.id, g.title, g.category, g.relation_type, g.relation_label,
-               g.action_type, g.emotion, gs.short_story, gs.full_story,
-               g.price_or_exchange, g.status, g.is_anonymous,
-               u.anonymous_nickname, g.created_at, g.city_blur
-        FROM gifts g
-        JOIN users u ON g.user_id = u.id
-        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
-        WHERE g.status = 'published'
-    """
-    count_sql = """
-        SELECT COUNT(*)
-        FROM gifts g
-        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
-        WHERE g.status = 'published'
-    """
-    params = []
-    count_params = []
+    if favorites_of == "me":
+        # Join favorites table
+        sql = """
+            SELECT g.id, g.user_id, g.title, g.category, g.relation_type, g.relation_label,
+                   g.action_type, g.emotion, gs.short_story, gs.full_story,
+                   g.price_or_exchange, g.status, g.is_anonymous,
+                   u.anonymous_nickname, g.created_at, g.city_blur,
+                   f.created_at as favorite_created_at
+            FROM favorites f
+            JOIN gifts g ON f.gift_id = g.id
+            JOIN users u ON g.user_id = u.id
+            LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            WHERE f.user_id = ? AND g.status = 'published'
+        """
+        count_sql = """
+            SELECT COUNT(*)
+            FROM favorites f
+            JOIN gifts g ON f.gift_id = g.id
+            WHERE f.user_id = ? AND g.status = 'published'
+        """
+        params = [current_user_id]
+        count_params = [current_user_id]
+    else:
+        sql = """
+            SELECT g.id, g.user_id, g.title, g.category, g.relation_type, g.relation_label,
+                   g.action_type, g.emotion, gs.short_story, gs.full_story,
+                   g.price_or_exchange, g.status, g.is_anonymous,
+                   u.anonymous_nickname, g.created_at, g.city_blur
+            FROM gifts g
+            JOIN users u ON g.user_id = u.id
+            LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            WHERE 1=1
+        """
+        count_sql = """
+            SELECT COUNT(*)
+            FROM gifts g
+            LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+            WHERE 1=1
+        """
+        params = []
+        count_params = []
+
+        # Status filter: mine=true shows all statuses; public only shows published
+        if mine:
+            sql += " AND g.user_id = ?"
+            count_sql += " AND g.user_id = ?"
+            params.append(current_user_id)
+            count_params.append(current_user_id)
+        else:
+            sql += " AND g.status = 'published'"
+            count_sql += " AND g.status = 'published'"
 
     # Search clause
     search_clause, search_params = _build_search_clause(q)
@@ -187,14 +244,32 @@ def list_gifts(
     params.extend([limit, offset])
     cur = conn.execute(sql, params)
     rows = cur.fetchall()
+
+    # Check favorites for current user (for is_favorited field)
+    favorited_ids = set()
+    if current_user_id and not favorites_of:
+        gift_ids = [row["id"] for row in rows]
+        if gift_ids:
+            placeholders = ",".join(["?"] * len(gift_ids))
+            fav_cur = conn.execute(
+                f"SELECT gift_id FROM favorites WHERE user_id = ? AND gift_id IN ({placeholders})",
+                [current_user_id] + gift_ids
+            )
+            favorited_ids = {r[0] for r in fav_cur.fetchall()}
+
     close_connection(conn)
 
     items = []
     for row in rows:
         matched = _build_matched_fields(row, q)
         story_text = row["short_story"] or row["full_story"] or ""
-        items.append({
-            "id": row["id"],
+        gift_id = row["id"]
+        is_mine = current_user_id is not None and row["user_id"] == current_user_id
+        is_favorited = gift_id in favorited_ids
+        favorite_created_at = row["favorite_created_at"] if favorites_of == "me" else None
+
+        item = {
+            "id": gift_id,
             "title": row["title"],
             "category": row["category"],
             "relation_type": row["relation_type"],
@@ -211,8 +286,14 @@ def list_gifts(
             "created_at": row["created_at"],
             "city_blur": row["city_blur"],
             "matched_fields": matched if q else None,
-            "search_highlight": None,  # No HTML highlight to avoid XSS
-        })
+            "search_highlight": None,
+            # Phase 2G-2 extras
+            "is_mine": is_mine,
+            "is_favorited": is_favorited,
+        }
+        if favorite_created_at:
+            item["favorite_created_at"] = favorite_created_at
+        items.append(item)
 
     total_pages = (total + limit - 1) // limit if limit > 0 else 0
     has_more = page < total_pages
@@ -230,6 +311,8 @@ def list_gifts(
             "action_type": action_type,
             "relation_type": relation_type,
             "city_blur": city_blur,
+            "mine": mine,
+            "favorites_of": favorites_of,
             "sort": sort,
             "order": order,
         }

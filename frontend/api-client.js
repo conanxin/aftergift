@@ -158,12 +158,22 @@
       if (filters.emotion)       params.set('emotion',       filters.emotion);
       if (filters.relation_type) params.set('relation_type', filters.relation_type);
       if (filters.city_blur)     params.set('city_blur',     filters.city_blur);
+      if (filters.mine)          params.set('mine',          'true');
+      if (filters.favorites_of)  params.set('favorites_of',  filters.favorites_of);
       params.set('page',  String(filters.page  || 1));
       params.set('limit', String(filters.limit || 12));
       if (filters.sort)  params.set('sort',  filters.sort);
       if (filters.order) params.set('order', filters.order);
       var qs = params.toString();
-      return apiFetch('/api/gifts' + (qs ? '?' + qs : '')).then(unwrap).then(function (data) {
+      var headers = {};
+      var token = getStoredToken();
+      if (filters.mine || filters.favorites_of) {
+        if (!token) {
+          return Promise.reject(new Error('请先创建匿名身份'));
+        }
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      return apiFetch('/api/gifts' + (qs ? '?' + qs : ''), { headers: headers }).then(unwrap).then(function (data) {
         return {
           items:      (data.items || []).map(normalizeGift),
           total:      data.total      || 0,

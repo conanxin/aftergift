@@ -152,8 +152,14 @@
       page: 1,
       limit: 12
     };
-    if (currentFilter !== 'all' && currentFilter !== 'favorites') {
+    if (currentFilter !== 'all' && currentFilter !== 'favorites' && currentFilter !== 'mine' && currentFilter !== 'my_favorites') {
       params.action_type = currentFilter;
+    }
+    if (currentFilter === 'mine') {
+      params.mine = true;
+    }
+    if (currentFilter === 'my_favorites') {
+      params.favorites_of = 'me';
     }
     return params;
   }
@@ -205,6 +211,8 @@
     var filtered = gifts.filter(function (g) {
       if (currentFilter === 'all') return true;
       if (currentFilter === 'favorites') return !!favorites[g.id];
+      if (currentFilter === 'mine') return true; // backend already filtered
+      if (currentFilter === 'my_favorites') return true; // backend already filtered
       return g.action === currentFilter;
     });
 
@@ -215,6 +223,8 @@
       var msgs = {
         all:       '这里还没有礼物故事。',
         favorites: '你还没有收藏任何故事。\u003cbr\u003e也许有些旧物，会在某个时刻与你相遇。',
+        mine:      '你还没有发布过礼物。\u003cbr\u003e也许现在就是写下第一个故事的时刻。',
+        my_favorites: '你还没有收藏任何故事。\u003cbr\u003e也许有些旧物，会在某个时刻与你相遇。',
         sell:      '这一类礼物暂时还没有故事。',
         exchange:  '这一类礼物暂时还没有故事。',
         giveaway:  '这一类礼物暂时还没有故事。',
@@ -280,27 +290,47 @@
   function giftCardHTML(g) {
     var actionClass = 'action-' + g.action;
     var emotionIcon = emotionIconSVG(g.emotion);
-    var isFav = !!favorites[g.id];
+    var isFav = !!favorites[g.id] || g.is_favorited;
     var favClass = isFav ? 'favorited' : '';
-    return '<article class="gift-card" data-id="' + g.id + '" tabindex="0" role="button" aria-label="查看礼物「' + escHtml(g.name) + '」的完整故事">' +
-      '<button class="card-favorite-btn ' + favClass + '" data-id="' + g.id + '" aria-label="' + (isFav ? '取消收藏' : '收藏故事') + '" tabindex="0">' +
-        '<svg viewBox="0 0 20 20" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/></svg>' +
-      '</button>' +
-      '<div class="gift-card-header">' +
-        '<h3 class="gift-card-title">' + escHtml(g.name) + '</h3>' +
-        '<span class="gift-card-action ' + actionClass + '">' + escHtml(g.actionLabel) + '</span>' +
-      '</div>' +
-      '<div class="gift-card-meta">' +
-        '<span class="gift-card-tag">' + escHtml(g.type) + '</span>' +
-        '<span class="gift-card-tag">' + escHtml(g.relationLabel || g.relation || '') + '</span>' +
-        '<span class="gift-card-emotion">' + emotionIcon + escHtml(g.emotion) + '</span>' +
-      '</div>' +
-      '<p class="gift-card-excerpt">' + escHtml(g.excerpt) + '</p>' +
-      '<div class="gift-card-footer">' +
-        '<span class="gift-card-price">' + escHtml(g.price) + '</span>' +
-        '<span class="gift-card-status">' + escHtml(g.status) + '</span>' +
-      '</div>' +
-    '</article>';
+    // Status badge for mine view
+    var statusBadge = '';
+    if (currentFilter === 'mine' && g.status) {
+      var statusLabels = {
+        published: '已发布',
+        pending_review: '待审核',
+        needs_edit: '需修改',
+        rejected: '已拒绝',
+        draft: '草稿',
+        archived: '已归档'
+      };
+      var statusClass = 'status-' + g.status;
+      statusBadge = '<span class="gift-card-status-badge ' + statusClass + '" data-status="' + g.status + '"\u003e' + escHtml(statusLabels[g.status] || g.status) + '</span\u003e';
+    }
+    // Favorite created at for my_favorites view
+    var favTime = '';
+    if (currentFilter === 'my_favorites' && g.favorite_created_at) {
+      favTime = '<span class="gift-card-fav-time"\u003e收藏于 ' + escHtml(g.favorite_created_at) + '</span\u003e';
+    }
+    return '<article class="gift-card" data-id="' + g.id + '" tabindex="0" role="button" aria-label="查看礼物「' + escHtml(g.name) + '」的完整故事"\u003e' +
+      '<button class="card-favorite-btn ' + favClass + '" data-id="' + g.id + '" aria-label="' + (isFav ? '取消收藏' : '收藏故事') + '" tabindex="0"\u003e' +
+        '<svg viewBox="0 0 20 20" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true"\u003e<path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/\u003e</svg\u003e' +
+      '</button\u003e' +
+      '<div class="gift-card-header"\u003e' +
+        '<h3 class="gift-card-title"\u003e' + escHtml(g.name) + '</h3\u003e' +
+        '<span class="gift-card-action ' + actionClass + '"\u003e' + escHtml(g.actionLabel) + '</span\u003e' +
+      '</div\u003e' +
+      '<div class="gift-card-meta"\u003e' +
+        '<span class="gift-card-tag"\u003e' + escHtml(g.type) + '</span\u003e' +
+        '<span class="gift-card-tag"\u003e' + escHtml(g.relationLabel || g.relation || '') + '</span\u003e' +
+        '<span class="gift-card-emotion"\u003e' + emotionIcon + escHtml(g.emotion) + '</span\u003e' +
+      '</div\u003e' +
+      '<p class="gift-card-excerpt"\u003e' + escHtml(g.excerpt) + '</p\u003e' +
+      '<div class="gift-card-footer"\u003e' +
+        '<span class="gift-card-price"\u003e' + escHtml(g.price) + '</span\u003e' +
+        statusBadge +
+        favTime +
+      '</div\u003e' +
+    '</article\u003e';
   }
 
   function emptyStateHTML(msg) {
@@ -963,6 +993,16 @@
 
     if (btn.classList.contains('active')) return;
 
+    // Phase 2G-2: mine / my_favorites require auth in api mode
+    var mode = window.__AF_MODE || 'static';
+    if (mode === 'api' && (filter === 'mine' || filter === 'my_favorites')) {
+      var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken) ? window.AftergiftAPI.getStoredToken() : null;
+      if (!token) {
+        showToast('请先创建匿名身份，再查看你的' + (filter === 'mine' ? '发布' : '收藏'));
+        return;
+      }
+    }
+
     currentFilter = filter;
     displayedCount = INITIAL_DISPLAY;
     filterTabs.forEach(function (t) {
@@ -972,7 +1012,6 @@
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
 
-    var mode = window.__AF_MODE || 'static';
     if (mode === 'api' && window.AftergiftAPI) {
       // API mode: re-query with filter + preserved search
       var params = buildListParams();
@@ -986,8 +1025,12 @@
           has_more: result.has_more || false
         };
         renderGifts();
-      }).catch(function () {
-        showToast('无法加载筛选结果，请检查 API 连接');
+      }).catch(function (err) {
+        if (err && err.message && err.message.indexOf('匿名身份') !== -1) {
+          showToast(err.message);
+        } else {
+          showToast('无法加载筛选结果，请检查 API 连接');
+        }
       });
     } else {
       // Static mode: reload with filter + search
@@ -1125,6 +1168,14 @@
         }
       });
     });
+
+    // Phase 2G-2: Show mine tabs in api mode
+    var mode = window.__AF_MODE || 'static';
+    if (mode === 'api') {
+      document.querySelectorAll('.filter-tab-mine').forEach(function (tab) {
+        tab.style.display = '';
+      });
+    }
   }
 
   // ── Escape HTML ──

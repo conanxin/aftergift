@@ -66,6 +66,8 @@
 | emotion | string | null | 筛选情绪标签 |
 | relation_type | string | null | 筛选关系类型 |
 | city_blur | string | null | 筛选城市模糊 |
+| mine | boolean | false | **Phase 2G-2** 仅返回当前用户发布的礼物（需 Bearer Token）|
+| favorites_of | string | null | **Phase 2G-2** 筛选收藏：`me`=当前用户（需 Bearer Token）|
 | page | integer | 1 | 页码 |
 | limit | integer | 12 | 每页数量（上限 50）|
 | sort | string | created_at | 排序字段（白名单：created_at/updated_at/title/price_or_exchange）|

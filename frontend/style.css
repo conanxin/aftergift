@@ -554,6 +554,30 @@ section { padding: 80px 0; }
   flex-shrink: 0;
 }
 
+/* Phase 2G-2: Status badges for my gifts */
+.gift-card-status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 100px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.status-published   { background: rgba(143,175,154,0.18); color: #5a8a6e; }
+.status-pending_review { background: rgba(196,168,130,0.18); color: #9a7a4a; }
+.status-needs_edit  { background: rgba(212,137,106,0.15); color: var(--tag-sell); }
+.status-rejected    { background: rgba(180,100,100,0.12); color: #a06060; }
+.status-draft       { background: rgba(184,169,196,0.15); color: var(--tag-keep); }
+.status-archived    { background: rgba(160,152,144,0.15); color: var(--text-3); }
+
+/* Phase 2G-2: Favorite time for my favorites */
+.gift-card-fav-time {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-style: italic;
+}
+
 /* ── PUBLISH ── */
 .publish { background: var(--surface); }
 
