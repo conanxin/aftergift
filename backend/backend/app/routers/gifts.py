@@ -1,6 +1,7 @@
 """
 Aftergift Backend - Gifts Router
 Phase 2B | GET /api/gifts, GET /api/gifts/{id}, POST /api/gifts
+Phase 2E-3 | Review log redaction applied before persistence
 """
 
 import uuid
@@ -15,6 +16,7 @@ from app.schemas import (
     GiftDetail, GiftCreateResponse, StoryDetail
 )
 from app.services import review_service
+from app.services.anonymize_service import redact_sensitive_text, summarize_redactions
 from app.auth import _require_auth
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
@@ -172,16 +174,45 @@ def create_gift(
     """
     发布新礼物。
 
-    Phase 2D 策略：
-    - 需要 Bearer token（通过 POST /api/auth/anonymous 获取）
-    - 无 token → 401
-    - token 有效 → 使用该 user_id 发布
-    - Phase 2E 接入真实 JWT + 手机号认证
+    Phase 2E-3 增强：
+    - review_result 中的 issues / suggestions 在写入 review_logs 前自动脱敏
+    - review_logs 不保存原始敏感值
+    - 新增 redaction_summary 记录脱敏操作
     """
     user_id = _require_auth(request)
     review_result = review_service.mock_review(gift.short_story, gift.full_story)
     risk_level = review_result["risk_level"]
     publish_status = review_service.get_publish_status(review_result)
+
+    # Phase 2E-3: Redact review_result before persistence
+    # Redact issues evidence and suggestions
+    redacted_issues = []
+    for issue in review_result.get("issues", []):
+        redacted_issue = dict(issue)
+        if "original" in redacted_issue:
+            redacted_issue["original"] = redact_sensitive_text(str(redacted_issue["original"]))
+        redacted_issues.append(redacted_issue)
+
+    redacted_suggestions = []
+    for suggestion in review_result.get("suggestions", []):
+        redacted_sug = dict(suggestion)
+        for key in ("original", "message", "replacement"):
+            if key in redacted_sug and redacted_sug[key]:
+                redacted_sug[key] = redact_sensitive_text(str(redacted_sug[key]))
+        redacted_suggestions.append(redacted_sug)
+
+    # Build redaction summary
+    combined_evidence = ""
+    for issue in review_result.get("issues", []):
+        combined_evidence += str(issue.get("original", "")) + " "
+    for suggestion in review_result.get("suggestions", []):
+        combined_evidence += str(suggestion.get("original", "")) + " "
+        combined_evidence += str(suggestion.get("message", "")) + " "
+
+    redaction_summary = summarize_redactions(
+        combined_evidence,
+        redact_sensitive_text(combined_evidence)
+    )
 
     # 2. Generate IDs
     gift_id = f"gift-{uuid.uuid4().hex[:8]}"
@@ -242,7 +273,13 @@ def create_gift(
         review_result.get("provider", "mock"), "ai_rule_engine"
     )
 
-    # 6. Insert review log
+    # Build suggestions_json with redaction summary embedded
+    suggestions_payload = {
+        "suggestions": redacted_suggestions,
+        "redaction_summary": redaction_summary,
+    }
+
+    # 6. Insert review log (with redacted data)
     conn.execute("""
         INSERT INTO review_logs (id, gift_id, risk_level, identity_risk,
                                  attack_risk, identifiable_person_risk,
@@ -253,7 +290,7 @@ def create_gift(
         review_log_id, gift_id, risk_level,
         identity_risk, attack_risk, identifiable_person_risk,
         str(review_result.get("quality_notes", {})),
-        str(review_result.get("suggestions", [])),
+        str(suggestions_payload),
         reviewer_type,
         "approve" if risk_level == "safe" else None,
         now
@@ -271,6 +308,7 @@ def create_gift(
             "review": {
                 "risk_level": risk_level,
                 "issues_count": len(review_result.get("issues", [])),
+                "redaction_summary": redaction_summary,
             }
         },
         code=201,

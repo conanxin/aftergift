@@ -155,13 +155,17 @@
 - [x] 测试 11/11 PASS
 - [x] 旧 test_fastapi_contract.py 8/8 PASS
 
-### 2E-3：审核日志脱敏 🔲 待开始
-- [ ] `review_logs` 表中 `ai_input` / `ai_output` 字段在写入前脱敏
-- [ ] 移除 `short_story` / `full_story` 中的人名、手机号、地址、公司
-- [ ] 记录脱敏操作本身（不记录原始内容）
-- [ ] Admin 查看日志时只展示脱敏后内容
+### 2E-3：审核日志脱敏 ✅ 已完成
+- [x] `anonymize_service.py` 增强：`redact_sensitive_text()` / `summarize_redactions()` / `safe_excerpt()` / `redact_review_result()`
+- [x] `gifts.py` 写入 review_logs 前自动脱敏 issues / suggestions
+- [x] `review_logs.suggestions_json` 嵌入 `redaction_summary`
+- [x] `admin.py` 解析 redaction_summary，Admin 队列展示脱敏数据
+- [x] 脱敏类型：phone / email / wechat / qq / social / address / name_pattern
+- [x] 不存储原始敏感值到 review_logs
+- [x] gift_stories 保留原文（供用户查看和 Admin 审核）
+- [x] 测试 11/11 PASS
 
-**环境变量**：
+### 2E-4：OpenAI Provider 沙箱实现 🔲 待开始
 ```
 MODERATION_PROVIDER=mock      # mock | openai | baidu
 OPENAI_API_KEY=               # OpenAI API Key（仅 provider=openai 时需要）
@@ -279,7 +283,7 @@ Phase 2A  ✅ 沙箱蓝图
 Phase 2B  ✅ FastAPI 骨架
 Phase 2C  ✅ SQLite MVP + API 联调
 Phase 2D  ✅ 匿名身份 + Admin 审核 UI
-Phase 2E  🔲 PyJWT 升级 + Moderation Provider 抽象（下一步）
+Phase 2E  ✅ PyJWT 升级 + Moderation Provider 抽象 + 审核日志脱敏
 Phase 2F  🔲 Admin 增强 + 举报队列
 Phase 2G  🔲 小范围本地内测
 Phase 3A  🔲 社区功能（收藏、评论、私信）

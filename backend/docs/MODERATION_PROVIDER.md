@@ -196,7 +196,20 @@ class ModerationResult:
 
 ---
 
-## 8. 文件清单
+## 8. Phase 2E-3 增强：审核日志脱敏
+
+Phase 2E-3 在 provider 输出进入 review_logs 前增加了自动脱敏：
+
+1. **issues evidence 脱敏**：`issue["original"]` 中的手机号、姓名、地址等被替换为占位符
+2. **suggestions 脱敏**：`suggestion["original"]` / `message"` / `replacement"` 全部脱敏
+3. **redaction_summary**：记录脱敏类型和数量，不记录原始值
+4. **raw 字段**：`ModerationResult.raw` 仅用于内存调试，**不持久化**到 review_logs
+
+详见：`backend/docs/REDACTION_POLICY.md`
+
+---
+
+## 9. 文件清单
 
 ```
 backend/backend/app/services/moderation/
@@ -210,7 +223,7 @@ backend/backend/app/services/moderation/
 backend/backend/app/services/
 ├── __init__.py          # 包导出（新增）
 ├── review_service.py    # 包装层（重写）
-└── anonymize_service.py # 不变
+└── anonymize_service.py # Phase 2E-3 增强：脱敏函数
 ```
 
 ---

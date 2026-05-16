@@ -15,8 +15,9 @@
 | Phase 2D | 匿名身份 + Admin UI | 100% | HMAC token、27 字段审核队列、Admin Review Panel |
 | Phase 2E-1 | PyJWT Token 升级 | 100% | **本阶段已完成** — HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
 | Phase 2E-2 | Moderation Provider 抽象 | 100% | **本阶段已完成** — Provider 抽象层、Mock/OpenAI/Baidu 可切换 |
-| Phase 2E-3 | 审核日志脱敏 | 0% | 敏感信息过滤、存储脱敏 |
-| Phase 2G | 本地内测 | 0% | |
+| Phase 2E-3 | 审核日志脱敏 | 100% | **本阶段已完成** — review_logs 自动脱敏，Admin 队列脱敏展示 |
+| Phase 2E-4 | OpenAI Provider 沙箱 | 0% | 真实 OpenAI Moderation API 接入（需 API key + ENABLE 开关） |
+| Phase 2F | Admin 增强 + 举报队列 | 0% | |
 
 ---
 

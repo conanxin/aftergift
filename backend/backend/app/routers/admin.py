@@ -1,7 +1,7 @@
 """
 Aftergift Backend - Admin Router
 Phase 2D | GET /api/admin/reviews, POST /api/admin/reviews/{id}/decision
-Enhanced: full fields for admin review UI
+Phase 2E-3 | Admin queue shows redacted review data
 """
 
 import uuid
@@ -12,6 +12,7 @@ from typing import Optional, Dict
 from fastapi.responses import JSONResponse
 from app.database import get_connection, close_connection
 from app.config import ADMIN_TOKEN
+from app.services.anonymize_service import redact_sensitive_text
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -39,18 +40,10 @@ def list_pending_reviews(
     """
     获取待审核队列（pending_review + needs_edit 状态）。
 
-    Phase 2D 增强：返回完整字段，方便管理员审核 UI 展示。
-
-    返回字段：
-    - gift_id, title, category, relation_type, relation_label
-    - action_type, emotion, short_story, full_story
-    - risk_level, story_quality_score
-    - review_issues (from review_logs.issues_json)
-    - review_suggestions (from review_logs.suggestions_json)
-    - quality_notes (parsed from review_logs.quality_notes)
-    - identity_risk, attack_risk, identifiable_person_risk
-    - status, created_at, updated_at
-    - ai_review_notes (computed string)
+    Phase 2E-3 增强：
+    - review_suggestions / review_issues 中的 evidence 已脱敏
+    - 新增 redaction_summary 字段
+    - story text 保留原文供人工审核，但 review log 数据已脱敏
     """
     _verify_admin_token(request)
 
@@ -101,9 +94,15 @@ def list_pending_reviews(
     items = []
     for row in rows:
         suggestions = []
+        redaction_summary = None
         if row["suggestions_json"]:
             try:
-                suggestions = json.loads(row["suggestions_json"])
+                parsed = json.loads(row["suggestions_json"])
+                if isinstance(parsed, dict):
+                    suggestions = parsed.get("suggestions", [])
+                    redaction_summary = parsed.get("redaction_summary")
+                else:
+                    suggestions = parsed
             except Exception:
                 suggestions = []
 
@@ -129,15 +128,16 @@ def list_pending_reviews(
             "condition_note": row["condition_note"],
             "status": row["status"],
             "is_anonymous": bool(row["is_anonymous"]),
-            # Story
+            # Story (original for human review)
             "short_story": row["short_story"],
             "full_story": row["full_story"],
-            # Review
+            # Review (redacted)
             "risk_level": row["risk_level"],
             "story_quality_score": row["story_quality_score"],
             "review_issues": issues,
             "review_suggestions": suggestions,
             "quality_notes": quality_notes,
+            "redaction_summary": redaction_summary,
             "identity_risk": row["identity_risk"] or 0,
             "attack_risk": row["attack_risk"] or 0,
             "identifiable_person_risk": row["identifiable_person_risk"] or 0,
