@@ -279,7 +279,10 @@
         if (data.rails) {
           var rails = {};
           Object.keys(data.rails).forEach(function (k) {
-            rails[k] = (data.rails[k] || []).map(normalizeGift);
+            var railData = data.rails[k];
+            // Phase 2I-2: rails[key] is now {items, fallback_used} for gentle
+            var items = Array.isArray(railData) ? railData : (railData.items || []);
+            rails[k] = items.map(normalizeGift);
           });
           return { rail: 'all', rails: rails };
         }
@@ -289,8 +292,9 @@
         };
       });
     }
-    // Static fallback
-    return getStaticDiscoveryRails(params, []);
+    // Static fallback: use window.__AF_STATIC_DATA as last resort
+    var data = (typeof window !== 'undefined' && window.__AF_STATIC_DATA) || [];
+    return getStaticDiscoveryRails(params, data);
   }
 
   function getStaticDiscoveryRails(params, staticData) {
@@ -337,7 +341,7 @@
 
   // ── Similar Gifts (Phase 2I-1) ─────────────────────────────────────────────
 
-  function getSimilarGifts(giftId, params) {
+  function getSimilarGifts(giftId, params, staticData) {
     params = params || {};
     if (MODE === 'api') {
       var qs = new URLSearchParams();
@@ -351,8 +355,12 @@
           };
         });
     }
-    // Static fallback
-    return getStaticSimilarGifts(giftId, params, []);
+    // Static fallback: use passed staticData, or window as last resort
+    var data = staticData;
+    if (!data || !data.length) {
+      data = (typeof window !== 'undefined' && window.__AF_STATIC_DATA) || [];
+    }
+    return getStaticSimilarGifts(giftId, params, data);
   }
 
   function getStaticSimilarGifts(giftId, params, staticData) {
@@ -764,6 +772,7 @@
     getDiscoveryRails: getDiscoveryRails,
     getStaticDiscoveryRails: getStaticDiscoveryRails,
     getSimilarGifts: getSimilarGifts,
+    getSimilarStories: getSimilarGifts,  // alias for frontend convenience
     getStaticSimilarGifts: getStaticSimilarGifts,
     // Story
     reviewStory:    reviewStory,

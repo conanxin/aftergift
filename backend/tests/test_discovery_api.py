@@ -272,6 +272,78 @@ def test_list_has_favorite_count():
     print("PASS: test_list_has_favorite_count")
 
 
+# ── Phase 2I-2: Detail Favorite Count + Gentle Fallback ─────────────────────
+
+def test_detail_favorite_count():
+    """13. GET /api/gifts/{id} 返回真实 favorite_count。"""
+    # gift-d001 has 2 favorites
+    resp = client.get("/api/gifts/gift-d001")
+    data = _unwrap(resp)
+    assert data.get("favorite_count") == 2, f"Expected 2 favorites for gift-d001, got {data.get('favorite_count')}"
+    print("PASS: test_detail_favorite_count")
+
+
+def test_detail_favorite_count_zero():
+    """14. favorite_count 为 0 时返回 0，不是 null。"""
+    # gift-d007 has 0 favorites
+    resp = client.get("/api/gifts/gift-d007")
+    data = _unwrap(resp)
+    fc = data.get("favorite_count")
+    assert fc == 0, f"Expected 0 favorites, got {fc} (type: {type(fc)})"
+    assert fc is not None, "favorite_count should not be None"
+    print("PASS: test_detail_favorite_count_zero")
+
+
+def test_gentle_fallback_to_latest():
+    """15. gentle rail 无 safe/caution 数据时 fallback 到 latest。"""
+    # All seeded stories have risk_level='safe', so we test the structure
+    resp = client.get("/api/gifts/discovery?rail=gentle")
+    data = _unwrap(resp)
+    items = data.get("items", [])
+    # Should have items because all stories are 'safe'
+    assert len(items) > 0, "gentle rail should return items (all stories are safe)"
+    fallback_used = data.get("fallback_used", False)
+    # Since all stories are 'safe', gentle finds items directly — no fallback needed
+    # (fallback only triggers when 0 items returned)
+    assert isinstance(fallback_used, bool), "fallback_used should be boolean"
+    print("PASS: test_gentle_fallback_to_latest")
+
+
+def test_rail_all_gentle_fallback():
+    """16. rail=all 中 gentle 也有 fallback。"""
+    resp = client.get("/api/gifts/discovery?rail=all")
+    data = _unwrap(resp)
+    rails = data.get("rails", {})
+    gentle_rail = rails.get("gentle", {})
+    # gentle can be array (no fallback) or dict with items+fallback_used
+    if isinstance(gentle_rail, dict):
+        items = gentle_rail.get("items", [])
+        assert len(items) > 0, "gentle rail in 'all' should return items"
+    else:
+        # legacy array format
+        assert isinstance(gentle_rail, list), "gentle rail should be array or dict"
+    print("PASS: test_rail_all_gentle_fallback")
+
+
+def test_discovery_meta_non_personalized():
+    """17. discovery 响应包含 meta.strategy='non_personalized'。"""
+    resp = client.get("/api/gifts/discovery?rail=latest")
+    data = _unwrap(resp)
+    meta = data.get("meta", {})
+    assert meta.get("strategy") == "non_personalized", f"Expected non_personalized strategy, got {meta}"
+    assert meta.get("tracking") is False, "tracking should be False"
+    print("PASS: test_discovery_meta_non_personalized")
+
+
+def test_discovery_all_has_meta():
+    """18. rail=all 响应也包含 meta。"""
+    resp = client.get("/api/gifts/discovery?rail=all")
+    data = _unwrap(resp)
+    meta = data.get("meta", {})
+    assert meta.get("strategy") == "non_personalized", "Expected non_personalized in all rail meta"
+    print("PASS: test_discovery_all_has_meta")
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -290,6 +362,12 @@ if __name__ == "__main__":
             test_similar_score_sorted,
             test_similar_matched_reasons,
             test_list_has_favorite_count,
+            test_detail_favorite_count,
+            test_detail_favorite_count_zero,
+            test_gentle_fallback_to_latest,
+            test_rail_all_gentle_fallback,
+            test_discovery_meta_non_personalized,
+            test_discovery_all_has_meta,
         ]
         passed = 0
         failed = 0

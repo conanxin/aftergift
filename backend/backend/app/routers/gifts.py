@@ -373,7 +373,7 @@ def _discovery_query(rail: str, limit: int) -> tuple[str, list]:
         sql = base_select + " ORDER BY favorite_count DESC, g.created_at DESC LIMIT ?"
         return sql, [limit]
     if rail == "gentle":
-        # Prefer safe/caution stories; fallback to latest if no risk_level field available
+        # Phase 2I-2: Prefer safe/caution stories; fallback to latest if empty
         sql = base_select + """ AND gs.risk_level IN ('safe', 'caution')
             ORDER BY g.created_at DESC LIMIT ?"""
         return sql, [limit]
@@ -387,7 +387,7 @@ def discovery(
 ):
     """
     Discovery rails — non-personalized, explainable recommendations.
-    Phase 2I-1
+    Phase 2I-2: gentle rail has fallback to latest when no safe/caution gifts.
     """
     if rail not in _RAIL_WHITELIST:
         raise HTTPException(status_code=400, detail={
@@ -404,19 +404,46 @@ def discovery(
                 sql, params = _discovery_query(r, limit)
                 cur = conn.execute(sql, params)
                 rows = cur.fetchall()
-                result[r] = [_row_to_list_item(row) for row in rows]
+                items = [_row_to_list_item(row) for row in rows]
+                # Phase 2I-2: gentle fallback
+                if r == "gentle" and not items:
+                    sql2, params2 = _discovery_query("latest", limit)
+                    cur2 = conn.execute(sql2, params2)
+                    rows2 = cur2.fetchall()
+                    items = [_row_to_list_item(row2) for row2 in rows2]
+                    result[r] = {"items": items, "fallback_used": True}
+                else:
+                    result[r] = {"items": items, "fallback_used": False} if r == "gentle" else items
             return wrap({
                 "rail": "all",
                 "rails": result,
+                "meta": {
+                    "strategy": "non_personalized",
+                    "tracking": False,
+                    "description": "无个性化追踪，基于公开礼物数据排序"
+                }
             })
         else:
             sql, params = _discovery_query(rail, limit)
             cur = conn.execute(sql, params)
             rows = cur.fetchall()
             items = [_row_to_list_item(row) for row in rows]
+            fallback_used = False
+            # Phase 2I-2: gentle fallback
+            if rail == "gentle" and not items:
+                sql2, params2 = _discovery_query("latest", limit)
+                cur2 = conn.execute(sql2, params2)
+                rows2 = cur2.fetchall()
+                items = [_row_to_list_item(row2) for row2 in rows2]
+                fallback_used = True
             return wrap({
                 "rail": rail,
                 "items": items,
+                "fallback_used": fallback_used,
+                "meta": {
+                    "strategy": "non_personalized",
+                    "tracking": False,
+                }
             })
     finally:
         close_connection(conn)
@@ -515,10 +542,14 @@ def get_gift(gift_id: str):
         SELECT g.*, u.anonymous_nickname,
                gs.short_story, gs.full_story,
                gs.risk_level, gs.story_quality_score,
-               gs.created_at as story_created_at
+               gs.created_at as story_created_at,
+               COALESCE(fc.count, 0) as favorite_count
         FROM gifts g
         JOIN users u ON g.user_id = u.id
         LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+        LEFT JOIN (
+            SELECT gift_id, COUNT(*) as count FROM favorites GROUP BY gift_id
+        ) fc ON g.id = fc.gift_id
         WHERE g.id = ? AND g.status = 'published'
     """
     cur = conn.execute(sql, [gift_id])
@@ -555,8 +586,8 @@ def get_gift(gift_id: str):
         "story": story,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
-        # Phase 2I-1
-        "favorite_count": 0,
+        # Phase 2I-2: real favorite_count from JOIN
+        "favorite_count": row["favorite_count"] if "favorite_count" in row.keys() else 0,
     })
 
 
