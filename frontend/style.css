@@ -2457,6 +2457,171 @@ body.favorites-view .favorites-view-header {
   }
 }
 
+/* Phase 2M: Drafts View */
+.drafts-view {
+  padding: 2rem 0;
+  min-height: 60vh;
+}
+
+.drafts-view .container {
+  max-width: 680px;
+}
+
+.drafts-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.drafts-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0;
+  flex: 1;
+}
+
+.drafts-count {
+  font-size: 0.85rem;
+  color: var(--text-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.2rem 0.8rem;
+}
+
+.drafts-back-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.drafts-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-3);
+}
+
+.drafts-empty svg {
+  margin-bottom: 1rem;
+  opacity: 0.4;
+}
+
+.drafts-empty p {
+  margin: 0.4rem 0;
+  font-size: 1rem;
+}
+
+.drafts-empty-sub {
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+
+.drafts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.draft-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: box-shadow 0.2s;
+}
+
+.draft-card:hover {
+  box-shadow: 0 2px 12px rgba(44, 40, 37, 0.06);
+}
+
+.draft-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.draft-card-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-bottom: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.8rem;
+  color: var(--text-3);
+  flex-wrap: wrap;
+}
+
+.draft-card-id {
+  font-family: monospace;
+  background: var(--bg);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.draft-expired-badge {
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid #ffeaa7;
+}
+
+.draft-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.draft-card-actions .btn {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.draft-card-actions .btn-danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+/* Phase 2M: Show drafts link in My Space stat card when drafts exist */
+.mss-drafts-link {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-top: 0.3rem;
+  display: block !important;
+}
+
+/* Phase 2L-2: Hide other sections when drafts is active */
+body.drafts-view .hero,
+body.drafts-view #stories,
+body.drafts-view .filter-bar,
+body.drafts-view #publish,
+body.drafts-view #concept,
+body.drafts-view #ethics,
+body.drafts-view #roadmap,
+body.drafts-view footer,
+body.drafts-view .my-space-view {
+  display: none !important;
+}
+
+body.drafts-view .drafts-view {
+  display: block !important;
+}
+
 /* Phase 2L-2: Hide other sections when my-space is active */
 body.my-space-active .hero,
 body.my-space-active #stories,

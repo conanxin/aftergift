@@ -95,7 +95,29 @@ GET /api/me/actions?limit=5
 
 ### 5. 本地草稿（无详情）
 
-扫描 `localStorage` 中所有 `aftergift_edit_draft_*` key，仅显示数量，不展示草稿正文。
+扫描 `localStorage` 中所有 `aftergift_edit_draft_*` key，仅显示数量。
+
+**Phase 2M 更新**：统计卡片改为可点击，点击进入 `?view=drafts`。当 `drafts > 0` 时，显示"查看草稿 →"链接。
+
+### 6. Phase 2M：草稿视图 (`?view=drafts`)
+
+可通过本地草稿统计卡片点击进入，显示当前浏览器所有本地草稿列表：
+
+- 礼物名称（或"未命名草稿"）
+- gift_id 简写（8字符）
+- 最后修改时间
+- 30天过期提示（超过30天显示黄色徽章）
+- 操作：继续编辑 / 删除（含二次确认按钮）
+
+**隐私原则**：列表页不展示完整故事正文，仅显示名称和时间戳。
+
+**恢复编辑**：点击"继续编辑"后，检查 `gifts` 数组是否存在该 `gift_id`：
+- 存在 → `exitDraftsView()` → `openEditModal(giftId)`
+- 不存在 → toast "这个草稿对应的礼物暂时找不到了。"
+
+**返回**：返回 My Space（清除 `view=drafts` 参数）
+
+详见 [DRAFTS_VIEW.md](./DRAFTS_VIEW.md)。
 
 提示：**草稿只保存在这台设备上。**
 

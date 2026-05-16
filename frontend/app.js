@@ -945,7 +945,10 @@
               else draft[k] = v;
             });
             if (!draft.hasOwnProperty('is_anonymous')) draft.is_anonymous = false;
-            localStorage.setItem(draftKey, JSON.stringify(draft));
+            localStorage.setItem(draftKey, JSON.stringify({
+              payload: draft,
+              updated_at: new Date().toISOString()
+            }));
           } catch (e) {}
         }, 800);
       });
@@ -956,7 +959,9 @@
     if (restoreDraftBtn) {
       restoreDraftBtn.addEventListener('click', function () {
         try {
-          var draft = JSON.parse(localStorage.getItem(draftKey) || '{}');
+          var raw = JSON.parse(localStorage.getItem(draftKey) || '{}');
+          // Support both new format (payload/updated_at) and legacy flat format
+          var draft = (raw && raw.payload) ? raw.payload : raw;
           for (var k in draft) {
             var el = form.querySelector('[name="' + k + '"]');
             if (!el) continue;
@@ -2368,6 +2373,10 @@
       if (params.get('view') === 'me') {
         enterMySpaceView();
       }
+      // Phase 2M: handle ?view=drafts
+      if (params.get('view') === 'drafts') {
+        enterDraftsView();
+      }
     }
 
     window.enterFavoritesView = function () {
@@ -2572,6 +2581,154 @@
       loadGifts();
     };
 
+    // ── Phase 2M: Drafts View ──────────────────────────────────────────────
+
+    window.enterDraftsView = function () {
+      currentView = 'drafts';
+      document.body.classList.add('drafts-view');
+      document.body.classList.remove('favorites-view', 'my-space-active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderDraftsView();
+    };
+
+    window.exitDraftsView = function () {
+      currentView = 'home';
+      document.body.classList.remove('drafts-view');
+      var params = new URLSearchParams(window.location.search);
+      params.delete('view');
+      var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+    };
+
+    function renderDraftsView() {
+      var container = document.getElementById('draftsViewContainer');
+      if (!container) return;
+      document.getElementById('draftsView').style.display = 'block';
+
+      // Collect all draft keys
+      var draftItems = [];
+      try {
+        var keys = Object.keys(localStorage);
+        keys.forEach(function (k) {
+          if (k.indexOf('aftergift_edit_draft_') !== 0) return;
+          var raw = localStorage.getItem(k);
+          if (!raw) return;
+          var entry = JSON.parse(raw);
+          // Support legacy flat format
+          var payload = (entry && entry.payload) ? entry.payload : entry;
+          var updatedAt = (entry && entry.updated_at) ? entry.updated_at : null;
+          var giftId = k.replace('aftergift_edit_draft_', '');
+          draftItems.push({
+            key: k,
+            gift_id: giftId,
+            title: (payload && payload.name) ? payload.name : null,
+            updated_at: updatedAt
+          });
+        });
+      } catch (e) {}
+
+      var html = '<div class="drafts-header">';
+      html += '<button class="btn btn-ghost drafts-back-btn" id="draftsBackBtn" aria-label="返回我的空间">';
+      html += '<svg viewBox="0 0 20 20" fill="none" width="16" height="16" aria-hidden="true"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      html += '返回';
+      html += '</button>';
+      html += '<h2 class="drafts-title">本地草稿</h2>';
+      html += '<span class="drafts-count">' + draftItems.length + ' 个草稿</span>';
+      html += '</div>';
+
+      if (draftItems.length === 0) {
+        html += '<div class="drafts-empty">';
+        html += '<svg viewBox="0 0 24 24" fill="none" width="40" height="40" aria-hidden="true"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+        html += '<p>这里还没有本地草稿。</p>';
+        html += '<p class="drafts-empty-sub">你编辑过的故事会暂时保存在这台设备上。</p>';
+        html += '</div>';
+      } else {
+        html += '<div class="drafts-list">';
+        // Sort by updated_at desc (nulls last)
+        draftItems.sort(function (a, b) {
+          if (!a.updated_at) return 1;
+          if (!b.updated_at) return -1;
+          return new Date(b.updated_at) - new Date(a.updated_at);
+        });
+        var now = Date.now();
+        var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+        draftItems.forEach(function (item) {
+          var isExpired = item.updated_at ? (now - new Date(item.updated_at).getTime() > THIRTY_DAYS_MS) : false;
+          var shortId = item.gift_id.length > 8 ? item.gift_id.slice(0, 8) + '…' : item.gift_id;
+          var title = item.title || '未命名草稿';
+          var timeStr = item.updated_at
+            ? new Date(item.updated_at).toLocaleString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '时间未知';
+          html += '<div class="draft-card" data-key="' + escHtml(item.key) + '">';
+          html += '<div class="draft-card-body">';
+          html += '<div class="draft-card-title">' + escHtml(title) + '</div>';
+          html += '<div class="draft-card-meta">';
+          html += '<span class="draft-card-id">#' + escHtml(shortId) + '</span>';
+          html += '<span class="draft-card-time">最后修改：' + escHtml(timeStr) + '</span>';
+          if (isExpired) {
+            html += '<span class="draft-expired-badge">已保存超过 30 天</span>';
+          }
+          html += '</div></div>';
+          html += '<div class="draft-card-actions">';
+          html += '<button class="btn btn-sm btn-primary draft-continue-btn" data-gift-id="' + escHtml(item.gift_id) + '">继续编辑</button>';
+          html += '<button class="btn btn-sm btn-ghost draft-delete-btn" data-key="' + escHtml(item.key) + '">删除</button>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+
+      // Bind events
+      var backBtn = document.getElementById('draftsBackBtn');
+      if (backBtn) backBtn.addEventListener('click', exitDraftsView);
+
+      document.querySelectorAll('.draft-continue-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var gid = btn.getAttribute('data-gift-id');
+          // Check if gift still exists in current gifts list
+          var found = gifts.find(function (g) { return g.id === gid; });
+          if (found) {
+            exitDraftsView();
+            openEditModal(gid);
+          } else {
+            showToast('这个草稿对应的礼物暂时找不到了。');
+          }
+        });
+      });
+
+      document.querySelectorAll('.draft-delete-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-key');
+          // Double-confirm with button text change
+          if (btn.textContent.trim() === '删除') {
+            btn.textContent = '确认删除';
+            btn.classList.add('btn-danger');
+            setTimeout(function () {
+              if (btn.textContent.trim() === '确认删除') {
+                btn.textContent = '删除';
+                btn.classList.remove('btn-danger');
+              }
+            }, 3000);
+          } else {
+            try { localStorage.removeItem(key); } catch (e) {}
+            showToast('本地草稿已删除');
+            exitDraftsView();
+            // Refresh drafts count in My Space if visible
+            var countEl = document.getElementById('mySpaceDraftsCount');
+            if (countEl) {
+              var c = 0;
+              try {
+                var ks = Object.keys(localStorage);
+                c = ks.filter(function (k) { return k.indexOf('aftergift_edit_draft_') === 0; }).length;
+              } catch (e) {}
+              countEl.textContent = String(c);
+            }
+          }
+        });
+      });
+    }
+
     function loadMySpace() {
       var mode = window.__AF_MODE || 'static';
       var mySpaceViewEl = document.getElementById('mySpaceView');
@@ -2623,6 +2780,12 @@
       if (el) el.textContent = stats.favorites;
       el = document.getElementById('mySpaceDraftsCount');
       if (el) el.textContent = stats.drafts;
+      // Phase 2M: show "查看草稿 →" link if drafts > 0
+      var linkEl = document.getElementById('mySpaceDraftsLink');
+      if (linkEl) {
+        var draftNum = parseInt(stats.drafts, 10);
+        linkEl.style.display = (draftNum > 0) ? '' : 'none';
+      }
     }
 
     function loadMySpaceData() {
