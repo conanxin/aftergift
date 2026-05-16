@@ -274,6 +274,7 @@
     giftGrid.querySelectorAll('.gift-card').forEach(function (card) {
       card.addEventListener('click', function (e) {
         if (e.target.closest('.card-favorite-btn')) return;
+        if (e.target.closest('.mine-action-btn')) return;
         var id = card.getAttribute('data-id');
         openModal(id);
       });
@@ -283,6 +284,15 @@
         e.stopPropagation();
         var id = btn.getAttribute('data-id');
         if (id) toggleFavorite(id);
+      });
+    });
+    // Phase 2H-1: Mine action buttons
+    giftGrid.querySelectorAll('.mine-action-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var action = btn.getAttribute('data-action');
+        var id = btn.getAttribute('data-id');
+        if (action && id) handleMineAction(action, id);
       });
     });
   }
@@ -304,33 +314,54 @@
         archived: '已归档'
       };
       var statusClass = 'status-' + g.status;
-      statusBadge = '<span class="gift-card-status-badge ' + statusClass + '" data-status="' + g.status + '"\u003e' + escHtml(statusLabels[g.status] || g.status) + '</span\u003e';
+      statusBadge = '<span class="gift-card-status-badge ' + statusClass + '" data-status="' + g.status + '">' + escHtml(statusLabels[g.status] || g.status) + '</span>';
     }
     // Favorite created at for my_favorites view
     var favTime = '';
     if (currentFilter === 'my_favorites' && g.favorite_created_at) {
-      favTime = '<span class="gift-card-fav-time"\u003e收藏于 ' + escHtml(g.favorite_created_at) + '</span\u003e';
+      favTime = '<span class="gift-card-fav-time">收藏于 ' + escHtml(g.favorite_created_at) + '</span>';
     }
-    return '<article class="gift-card" data-id="' + g.id + '" tabindex="0" role="button" aria-label="查看礼物「' + escHtml(g.name) + '」的完整故事"\u003e' +
-      '<button class="card-favorite-btn ' + favClass + '" data-id="' + g.id + '" aria-label="' + (isFav ? '取消收藏' : '收藏故事') + '" tabindex="0"\u003e' +
-        '<svg viewBox="0 0 20 20" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true"\u003e<path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/\u003e</svg\u003e' +
-      '</button\u003e' +
-      '<div class="gift-card-header"\u003e' +
-        '<h3 class="gift-card-title"\u003e' + escHtml(g.name) + '</h3\u003e' +
-        '<span class="gift-card-action ' + actionClass + '"\u003e' + escHtml(g.actionLabel) + '</span\u003e' +
-      '</div\u003e' +
-      '<div class="gift-card-meta"\u003e' +
-        '<span class="gift-card-tag"\u003e' + escHtml(g.type) + '</span\u003e' +
-        '<span class="gift-card-tag"\u003e' + escHtml(g.relationLabel || g.relation || '') + '</span\u003e' +
-        '<span class="gift-card-emotion"\u003e' + emotionIcon + escHtml(g.emotion) + '</span\u003e' +
-      '</div\u003e' +
-      '<p class="gift-card-excerpt"\u003e' + escHtml(g.excerpt) + '</p\u003e' +
-      '<div class="gift-card-footer"\u003e' +
-        '<span class="gift-card-price"\u003e' + escHtml(g.price) + '</span\u003e' +
+    // Phase 2H-1: Action buttons for mine view
+    var mineActions = '';
+    if (currentFilter === 'mine' && g.status) {
+      var editable = { draft: true, pending_review: true, needs_edit: true };
+      var resubmittable = { draft: true, needs_edit: true };
+      var archivable = { published: true, pending_review: true, needs_edit: true };
+      var btns = [];
+      if (editable[g.status]) {
+        btns.push('<button class="btn btn-sm btn-ghost mine-action-btn" data-action="edit" data-id="' + escHtml(g.id) + '">编辑故事</button>');
+      }
+      if (resubmittable[g.status]) {
+        btns.push('<button class="btn btn-sm btn-secondary mine-action-btn" data-action="resubmit" data-id="' + escHtml(g.id) + '">重新提交</button>');
+      }
+      if (archivable[g.status]) {
+        btns.push('<button class="btn btn-sm btn-ghost mine-action-btn" data-action="archive" data-id="' + escHtml(g.id) + '">暂时收起</button>');
+      }
+      if (btns.length) {
+        mineActions = '<div class="gift-card-mine-actions">' + btns.join('') + '</div>';
+      }
+    }
+    return '<article class="gift-card" data-id="' + g.id + '" tabindex="0" role="button" aria-label="查看礼物「' + escHtml(g.name) + '」的完整故事">' +
+      '<button class="card-favorite-btn ' + favClass + '" data-id="' + g.id + '" aria-label="' + (isFav ? '取消收藏' : '收藏故事') + '" tabindex="0">' +
+        '<svg viewBox="0 0 20 20" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/></svg>' +
+      '</button>' +
+      '<div class="gift-card-header">' +
+        '<h3 class="gift-card-title">' + escHtml(g.name) + '</h3>' +
+        '<span class="gift-card-action ' + actionClass + '">' + escHtml(g.actionLabel) + '</span>' +
+      '</div>' +
+      '<div class="gift-card-meta">' +
+        '<span class="gift-card-tag">' + escHtml(g.type) + '</span>' +
+        '<span class="gift-card-tag">' + escHtml(g.relationLabel || g.relation || '') + '</span>' +
+        '<span class="gift-card-emotion">' + emotionIcon + escHtml(g.emotion) + '</span>' +
+      '</div>' +
+      '<p class="gift-card-excerpt">' + escHtml(g.excerpt) + '</p>' +
+      '<div class="gift-card-footer">' +
+        '<span class="gift-card-price">' + escHtml(g.price) + '</span>' +
         statusBadge +
         favTime +
-      '</div\u003e' +
-    '</article\u003e';
+      '</div>' +
+      mineActions +
+    '</article>';
   }
 
   function emptyStateHTML(msg) {
@@ -444,6 +475,147 @@
       claim:    '领取意向已记录：「' + gift.name + '」（原型阶段，请自行联系发布者）',
     };
     showToast(messages[action] || '已收到你的操作');
+  }
+
+  // ── Phase 2H-1: My Gift Management Actions ──
+  function handleMineAction(action, id) {
+    var mode = window.__AF_MODE || 'static';
+    if (mode !== 'api' || !window.AftergiftAPI) {
+      showToast('此功能仅在 API 模式下可用');
+      return;
+    }
+    if (action === 'edit') {
+      openEditModal(id);
+      return;
+    }
+    if (action === 'resubmit') {
+      window.AftergiftAPI.resubmitMyGift(id).then(function () {
+        showToast('已重新进入审核队列');
+        loadGifts();
+      }).catch(function (err) {
+        showToast('重新提交失败：' + (err.message || ''));
+      });
+      return;
+    }
+    if (action === 'archive') {
+      window.AftergiftAPI.archiveMyGift(id).then(function () {
+        showToast('这件礼物已暂时收起');
+        loadGifts();
+      }).catch(function (err) {
+        showToast('归档失败：' + (err.message || ''));
+      });
+      return;
+    }
+  }
+
+  // ── Phase 2H-1: Edit Modal ──
+  function openEditModal(giftId) {
+    var mode = window.__AF_MODE || 'static';
+    if (mode !== 'api' || !window.AftergiftAPI) {
+      showToast('此功能仅在 API 模式下可用');
+      return;
+    }
+    window.AftergiftAPI.getMyGift(giftId).then(function (g) {
+      lastFocusedElement = document.activeElement;
+      modalBody.innerHTML = buildEditFormHTML(g);
+      modalOverlay.classList.add('open');
+      modalOverlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      bindEditFormEvents(giftId);
+      var firstInput = modalBody.querySelector('input, textarea, select');
+      if (firstInput) firstInput.focus();
+    }).catch(function (err) {
+      showToast('加载礼物详情失败：' + (err.message || ''));
+    });
+  }
+
+  function buildEditFormHTML(g) {
+    var actionOptions = [
+      { value: 'sell', label: '出售' },
+      { value: 'exchange', label: '交换' },
+      { value: 'giveaway', label: '赠送' },
+      { value: 'donate', label: '捐出' },
+      { value: 'keep', label: '只讲故事' }
+    ];
+    var actionSelect = actionOptions.map(function (opt) {
+      return '<option value="' + opt.value + '"' + (g.action === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
+    }).join('');
+
+    var relationOptions = [
+      { value: 'lover', label: '恋人' },
+      { value: 'spouse', label: '夫妻' },
+      { value: 'friend', label: '朋友' },
+      { value: 'family', label: '家人' },
+      { value: 'colleague', label: '同事' },
+      { value: 'other', label: '其他' }
+    ];
+    var relationSelect = relationOptions.map(function (opt) {
+      return '<option value="' + opt.value + '"' + (g.relation === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
+    }).join('');
+
+    var emotionOptions = ['放下', '遗憾', '感谢', '释怀', '重启', '纪念', '治愈', '平静'];
+    var emotionSelect = emotionOptions.map(function (opt) {
+      return '<option value="' + opt + '"' + (g.emotion === opt ? ' selected' : '') + '>' + opt + '</option>';
+    }).join('');
+
+    var reviewNoteHtml = '';
+    if (g.review_note) {
+      reviewNoteHtml = '<div class="edit-review-note"><strong>审核备注：</strong> ' + escHtml(g.review_note) + '</div>';
+    }
+
+    return '<div class="edit-modal-header">' +
+      '<h2 class="edit-modal-title">编辑故事</h2>' +
+      '<span class="edit-modal-status">状态：' + escHtml(g.status || '') + '</span>' +
+    '</div>' +
+    reviewNoteHtml +
+    '<form id="editGiftForm" class="edit-form">' +
+      '<div class="form-group"><label class="form-label">礼物名称</label><input type="text" class="form-input" name="title" value="' + escHtml(g.name || '') + '" required></div>' +
+      '<div class="form-group"><label class="form-label">礼物类型</label><input type="text" class="form-input" name="category" value="' + escHtml(g.type || '') + '" required></div>' +
+      '<div class="form-group"><label class="form-label">关系类型</label><select class="form-select" name="relation_type">' + relationSelect + '</select></div>' +
+      '<div class="form-group"><label class="form-label">处理方式</label><select class="form-select" name="action_type">' + actionSelect + '</select></div>' +
+      '<div class="form-group"><label class="form-label">情绪标签</label><select class="form-select" name="emotion">' + emotionSelect + '</select></div>' +
+      '<div class="form-group"><label class="form-label">价格或交换意向</label><input type="text" class="form-input" name="price_or_exchange" value="' + escHtml(g.price || '') + '"></div>' +
+      '<div class="form-group"><label class="form-label">一句话故事</label><textarea class="form-textarea" name="short_story" rows="3" required>' + escHtml(g.excerpt || g.shortStory || '') + '</textarea></div>' +
+      '<div class="form-group"><label class="form-label">完整故事</label><textarea class="form-textarea" name="full_story" rows="6" required>' + escHtml(g.fullStory || '') + '</textarea></div>' +
+      '<div class="form-group form-checkbox"><label><input type="checkbox" name="is_anonymous"' + (g.anonymous ? ' checked' : '') + '> 匿名发布</label></div>' +
+      '<div class="edit-form-actions">' +
+        '<button type="submit" class="btn btn-primary">保存修改</button>' +
+        '<button type="button" class="btn btn-ghost" id="editCancelBtn">取消</button>' +
+      '</div>' +
+    '</form>';
+  }
+
+  function bindEditFormEvents(giftId) {
+    var form = document.getElementById('editGiftForm');
+    var cancelBtn = document.getElementById('editCancelBtn');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        var payload = {};
+        fd.forEach(function (v, k) {
+          if (k === 'is_anonymous') {
+            payload[k] = true;
+          } else {
+            payload[k] = v;
+          }
+        });
+        // If checkbox not checked, FormData won't include it
+        if (!payload.hasOwnProperty('is_anonymous')) payload.is_anonymous = false;
+        window.AftergiftAPI.updateMyGift(giftId, payload).then(function () {
+          showToast('修改已保存');
+          closeModal();
+          loadGifts();
+        }).catch(function (err) {
+          showToast('保存失败：' + (err.message || ''));
+        });
+      });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        closeModal();
+      });
+    }
   }
 
   function findGiftById(id) {

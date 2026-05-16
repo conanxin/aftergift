@@ -400,7 +400,6 @@
 |------|------|------|
 | GET | /api/users/me | 获取当前用户信息 |
 | GET | /api/users/me/favorites | 获取当前用户收藏列表 |
-| PATCH | /api/gifts/{id} | 编辑自己的故事（仅 draft/needs_edit）|
 | DELETE | /api/gifts/{id} | 删除自己的故事 |
 | GET | /api/admin/reports | 管理员查看举报列表 |
 | PATCH | /api/admin/reports/{id} | 管理员处理举报 |
@@ -408,4 +407,52 @@
 
 ---
 
-*最后更新：Phase 2A 完成时生成。*
+## 附录：Phase 2H-1 我的发布管理接口
+
+> 当前路径基于 `gifts.py` router prefix `/api/gifts`，因此实际路径为 `/api/gifts/me/gifts/{id}`。后续如需改为 `/api/me/gifts/{id}`，另开兼容迁移阶段。
+
+### A.1 GET /api/gifts/me/gifts/{gift_id}
+
+**用途**：获取当前用户自己的礼物详情（含完整故事和审核备注）
+
+**权限**：Bearer Token（只能查看自己的礼物，非自己 → 404）
+
+**响应字段**：包含 `id`, `title`, `category`, `relation_type`, `action_type`, `emotion`, `price_or_exchange`, `condition_note`, `city_blur`, `is_anonymous`, `status`, `story`, `created_at`, `updated_at`, `review_note`
+
+### A.2 PATCH /api/gifts/me/gifts/{gift_id}
+
+**用途**：编辑自己的礼物
+
+**权限**：Bearer Token
+
+**可编辑字段**：`title`, `category`, `relation_type`, `relation_label`, `action_type`, `emotion`, `price_or_exchange`, `condition_note`, `city_blur`, `is_anonymous`, `short_story`, `full_story`
+
+**状态规则**：仅 `draft` / `pending_review` / `needs_edit` 可编辑；`published` / `rejected` / `archived` → 409
+
+**审核复跑**：编辑 `short_story` 或 `full_story` 后自动重新运行 mock/OpenAI 审核，写入 `review_logs`，suggestions/evidence 仍脱敏
+
+### A.3 POST /api/gifts/me/gifts/{gift_id}/resubmit
+
+**用途**：重新提交礼物审核
+
+**权限**：Bearer Token
+
+**状态规则**：仅 `draft` / `needs_edit` 可重新提交
+
+**行为**：重新运行审核，状态变为 `pending_review`（保守策略）
+
+### A.4 POST /api/gifts/me/gifts/{gift_id}/archive
+
+**用途**：撤回（归档）自己的礼物
+
+**权限**：Bearer Token
+
+**状态规则**：`published` / `pending_review` / `needs_edit` 可归档
+
+**行为**：状态变为 `archived`，普通 `GET /api/gifts` 不再返回，`mine=true` 仍可看到
+
+**审计**：写入 `admin_actions`，`admin_id="self:<user_id>"`，note 记录用户自行归档（MVP 临时方案）
+
+---
+
+*最后更新：Phase 2H-1 完成时更新。*

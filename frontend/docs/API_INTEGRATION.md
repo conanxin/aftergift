@@ -324,7 +324,61 @@ AftergiftAPI.clearStoredToken()     // localStorage.removeItem('aftergift_token'
 
 ---
 
-## 13. 快速验证清单
+## 13. Phase 2H-1 我的发布管理 ✅ 已完成
+
+### 新增 API 能力
+
+| 方法 | 路径 | 功能 | 要求 |
+|------|------|------|------|
+| GET | `/api/gifts/me/gifts/{id}` | 获取自己的礼物详情 | Bearer Token |
+| PATCH | `/api/gifts/me/gifts/{id}` | 编辑自己的礼物 | Bearer Token |
+| POST | `/api/gifts/me/gifts/{id}/resubmit` | 重新提交审核 | Bearer Token |
+| POST | `/api/gifts/me/gifts/{id}/archive` | 撤回归档 | Bearer Token |
+
+> 路径说明：因 `gifts.py` router prefix 为 `/api/gifts`，实际路径为 `/api/gifts/me/gifts/{id}`。后续如需改为 `/api/me/gifts/{id}`，另开兼容迁移阶段。
+
+### 状态机规则
+
+| 操作 | 允许状态 | 禁止状态 | 结果状态 |
+|------|----------|----------|----------|
+| 编辑 | draft, pending_review, needs_edit | published, rejected, archived | 保持原状态 |
+| 重新提交 | draft, needs_edit | published, pending_review, rejected, archived | pending_review |
+| 归档 | published, pending_review, needs_edit | draft, rejected, archived | archived |
+
+### 前端适配
+
+- **Static 模式**：隐藏"编辑故事 / 重新提交 / 暂时收起"按钮
+- **API 模式**：在"我的发布"视图中按状态显示操作按钮
+  - `draft` / `pending_review` / `needs_edit` →「编辑故事」
+  - `needs_edit` / `draft` →「重新提交」
+  - `published` / `pending_review` / `needs_edit` →「暂时收起」
+- 点击「编辑故事」打开轻量编辑 Modal，表单字段与发布表单一致
+- 保存成功后刷新"我的发布"列表
+
+### 字段映射（编辑 Modal）
+
+| 前端表单字段 | 后端 PATCH 字段 | 说明 |
+|-------------|----------------|------|
+| `title` | `title` | 礼物名称 |
+| `category` | `category` | 类型 |
+| `relation_type` | `relation_type` | 关系 |
+| `action_type` | `action_type` | 处理方式 |
+| `emotion` | `emotion` | 情绪 |
+| `price_or_exchange` | `price_or_exchange` | 价格/交换意向 |
+| `short_story` | `short_story` | 一句话故事 |
+| `full_story` | `full_story` | 完整故事 |
+| `is_anonymous` | `is_anonymous` | 是否匿名 |
+
+### 安全与审核
+
+- 编辑 `short_story` / `full_story` 后自动重新运行 mock/OpenAI 审核
+- 审核结果写入 `review_logs`，suggestions / evidence 仍脱敏
+- 不允许修改 `user_id`、`status`、`id` 等受保护字段
+- 非本人礼物 → 404（避免暴露存在性）
+
+---
+
+## 14. 快速验证清单
 
 ```bash
 # 1. 启动后端
@@ -349,6 +403,11 @@ cd ~/projects/aftergift/frontend && python3 -m http.server 8080 &
 # → 创建匿名身份 → 发布礼物 → 点击"我的发布" → 应显示该礼物（含状态 badge）
 # → 收藏一个故事 → 点击"我的收藏" → 应显示该故事
 
-# 7. 关闭服务
+# 7. 验证我的发布管理
+# → 发布一个礼物 → 进入"我的发布" → 点击"编辑故事" → 修改标题 → 保存
+# → 审核退回的礼物 → 点击"重新提交" → 状态变为"待审核"
+# → 已发布的礼物 → 点击"暂时收起" → 状态变为"已归档"
+
+# 8. 关闭服务
 fuser -k 8091/tcp; fuser -k 8080/tcp
 ```

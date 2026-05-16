@@ -523,3 +523,428 @@ def create_gift(
         code=201,
         message=msg
     )
+
+
+# ── Phase 2H-1: My Gift Management ──────────────────────────────────────────
+
+# Editable statuses (user can edit their own gift)
+_EDITABLE_STATUSES = {"draft", "pending_review", "needs_edit"}
+# Resubmittable statuses
+_RESUBMITTABLE_STATUSES = {"draft", "needs_edit"}
+# Archivable statuses
+_ARCHIVABLE_STATUSES = {"published", "pending_review", "needs_edit"}
+
+
+def _get_gift_owner(gift_id: str, conn) -> str | None:
+    """Return user_id of gift owner, or None if gift doesn't exist."""
+    cur = conn.execute("SELECT user_id FROM gifts WHERE id = ?", [gift_id])
+    row = cur.fetchone()
+    return row["user_id"] if row else None
+
+
+def _get_last_review_note(gift_id: str, conn) -> str | None:
+    """Return the most recent admin decision note for a gift, if any."""
+    cur = conn.execute("""
+        SELECT note FROM admin_actions
+        WHERE target_type = 'gift' AND target_id = ? AND action = 'needs_edit'
+        ORDER BY created_at DESC LIMIT 1
+    """, [gift_id])
+    row = cur.fetchone()
+    return row["note"] if row else None
+
+
+def _review_and_log(gift_id: str, short_story: str, full_story: str, conn) -> dict:
+    """Run moderation review and write review_logs. Returns review_result dict."""
+    review_result = review_service.mock_review(short_story, full_story)
+    risk_level = review_result["risk_level"]
+
+    # Redact before persistence
+    redacted_issues = []
+    for issue in review_result.get("issues", []):
+        redacted_issue = dict(issue)
+        if "original" in redacted_issue:
+            redacted_issue["original"] = redact_sensitive_text(str(redacted_issue["original"]))
+        redacted_issues.append(redacted_issue)
+
+    redacted_suggestions = []
+    for suggestion in review_result.get("suggestions", []):
+        redacted_sug = dict(suggestion)
+        for key in ("original", "message", "replacement"):
+            if key in redacted_sug and redacted_sug[key]:
+                redacted_sug[key] = redact_sensitive_text(str(redacted_sug[key]))
+        redacted_suggestions.append(redacted_sug)
+
+    combined_evidence = ""
+    for issue in review_result.get("issues", []):
+        combined_evidence += str(issue.get("original", "")) + " "
+    for suggestion in review_result.get("suggestions", []):
+        combined_evidence += str(suggestion.get("original", "")) + " "
+        combined_evidence += str(suggestion.get("message", "")) + " "
+
+    redaction_summary = summarize_redactions(
+        combined_evidence,
+        redact_sensitive_text(combined_evidence)
+    )
+
+    review_log_id = f"review-{uuid.uuid4().hex[:8]}"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _issue_flag(issues, category, subtype=None):
+        for i in issues:
+            if subtype:
+                if i.get("category") == category and i.get("subtype") == subtype:
+                    return i.get("severity", "medium")
+            else:
+                if i.get("category") == category:
+                    return i.get("severity", "medium")
+        return "none"
+
+    issues = review_result.get("issues", [])
+    identity_risk = _issue_flag(issues, "identity")
+    attack_risk = _issue_flag(issues, "attack")
+    identifiable_person_risk = _issue_flag(issues, "identifiable_person")
+
+    PROVIDER_TO_REVIEWER_TYPE = {
+        "mock": "ai_rule_engine",
+        "openai": "ai_moderation_api",
+        "baidu": "ai_moderation_api",
+    }
+    reviewer_type = PROVIDER_TO_REVIEWER_TYPE.get(
+        review_result.get("provider", "mock"), "ai_rule_engine"
+    )
+
+    suggestions_payload = {
+        "suggestions": redacted_suggestions,
+        "redaction_summary": redaction_summary,
+    }
+
+    conn.execute("""
+        INSERT INTO review_logs (id, gift_id, risk_level, identity_risk,
+                                 attack_risk, identifiable_person_risk,
+                                 quality_notes, suggestions_json,
+                                 reviewer_type, decision, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        review_log_id, gift_id, risk_level,
+        identity_risk, attack_risk, identifiable_person_risk,
+        str(review_result.get("quality_notes", {})),
+        str(suggestions_payload),
+        reviewer_type,
+        "approve" if risk_level == "safe" else None,
+        now
+    ))
+
+    return {
+        "review_result": review_result,
+        "redaction_summary": redaction_summary,
+        "risk_level": risk_level,
+    }
+
+
+@router.get("/me/gifts/{gift_id}")
+def get_my_gift_detail(gift_id: str, request: Request):
+    """
+    获取当前用户自己的礼物详情（含完整故事和审核备注）。
+    Phase 2H-1: 仅返回自己的礼物，非自己 → 404。
+    """
+    user_id = _require_auth(request)
+    conn = get_connection()
+
+    # Verify ownership
+    owner_id = _get_gift_owner(gift_id, conn)
+    if owner_id is None:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+    if owner_id != user_id:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+
+    sql = """
+        SELECT g.*, u.anonymous_nickname,
+               gs.short_story, gs.full_story,
+               gs.risk_level, gs.story_quality_score,
+               gs.created_at as story_created_at
+        FROM gifts g
+        JOIN users u ON g.user_id = u.id
+        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+        WHERE g.id = ?
+    """
+    cur = conn.execute(sql, [gift_id])
+    row = cur.fetchone()
+
+    # Get last admin review note
+    review_note = _get_last_review_note(gift_id, conn)
+
+    close_connection(conn)
+
+    if not row:
+        raise HTTPException(status_code=404, detail="礼物不存在")
+
+    story = None
+    if row["short_story"]:
+        story = {
+            "short_story": row["short_story"],
+            "full_story": row["full_story"],
+            "risk_level": row["risk_level"],
+            "quality_score": row["story_quality_score"],
+            "created_at": row["story_created_at"]
+        }
+
+    return wrap({
+        "id": row["id"],
+        "title": row["title"],
+        "category": row["category"],
+        "relation_type": row["relation_type"],
+        "relation_label": row["relation_label"],
+        "action_type": row["action_type"],
+        "action_label": _build_action_label(row["action_type"]),
+        "emotion": row["emotion"],
+        "price_or_exchange": row["price_or_exchange"],
+        "condition_note": row["condition_note"],
+        "city_blur": row["city_blur"],
+        "is_anonymous": bool(row["is_anonymous"]),
+        "anonymous_nickname": row["anonymous_nickname"],
+        "status": row["status"],
+        "story": story,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "review_note": review_note,
+    })
+
+
+@router.patch("/me/gifts/{gift_id}")
+def update_my_gift(gift_id: str, payload: dict, request: Request):
+    """
+    编辑自己的礼物。
+    Phase 2H-1: 仅 draft / pending_review / needs_edit 可编辑。
+    编辑 story 后重新运行审核。
+    """
+    user_id = _require_auth(request)
+    conn = get_connection()
+
+    # Verify ownership
+    owner_id = _get_gift_owner(gift_id, conn)
+    if owner_id is None:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+    if owner_id != user_id:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+
+    # Check current status
+    cur = conn.execute("SELECT status FROM gifts WHERE id = ?", [gift_id])
+    current_status = cur.fetchone()["status"]
+    if current_status not in _EDITABLE_STATUSES:
+        close_connection(conn)
+        raise HTTPException(
+            status_code=409,
+            detail={"code": 409, "message": f"当前状态「{current_status}」不允许编辑", "data": None}
+        )
+
+    # Build update fields
+    allowed_fields = {
+        "title", "category", "relation_type", "relation_label",
+        "action_type", "emotion", "price_or_exchange", "condition_note",
+        "city_blur", "is_anonymous", "short_story", "full_story"
+    }
+    updates = {}
+    for key in allowed_fields:
+        if key in payload:
+            updates[key] = payload[key]
+
+    if not updates:
+        close_connection(conn)
+        raise HTTPException(status_code=400, detail="没有提供可编辑的字段")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Update gifts table
+    gift_cols = [k for k in updates if k not in ("short_story", "full_story")]
+    if gift_cols:
+        set_clause = ", ".join([f"{c} = ?" for c in gift_cols])
+        values = [updates[c] for c in gift_cols] + [now, gift_id]
+        conn.execute(f"UPDATE gifts SET {set_clause}, updated_at = ? WHERE id = ?", values)
+
+    # Update gift_stories if story fields changed
+    story_cols = [k for k in updates if k in ("short_story", "full_story")]
+    if story_cols:
+        story_set = ", ".join([f"{c} = ?" for c in story_cols])
+        story_values = [updates[c] for c in story_cols] + [gift_id]
+        conn.execute(f"UPDATE gift_stories SET {story_set} WHERE gift_id = ?", story_values)
+
+        # Re-run moderation review
+        short_story = updates.get("short_story", "")
+        full_story = updates.get("full_story", "")
+        review_info = _review_and_log(gift_id, short_story, full_story, conn)
+
+        # Update risk_level on gift_stories
+        conn.execute(
+            "UPDATE gift_stories SET risk_level = ? WHERE gift_id = ?",
+            [review_info["risk_level"], gift_id]
+        )
+    else:
+        review_info = None
+
+    conn.commit()
+
+    # Fetch updated gift
+    cur = conn.execute("""
+        SELECT g.*, u.anonymous_nickname,
+               gs.short_story, gs.full_story,
+               gs.risk_level, gs.story_quality_score,
+               gs.created_at as story_created_at
+        FROM gifts g
+        JOIN users u ON g.user_id = u.id
+        LEFT JOIN gift_stories gs ON g.id = gs.gift_id
+        WHERE g.id = ?
+    """, [gift_id])
+    row = cur.fetchone()
+    close_connection(conn)
+
+    story = None
+    if row and row["short_story"]:
+        story = {
+            "short_story": row["short_story"],
+            "full_story": row["full_story"],
+            "risk_level": row["risk_level"],
+            "quality_score": row["story_quality_score"],
+            "created_at": row["story_created_at"]
+        }
+
+    return wrap({
+        "id": row["id"],
+        "title": row["title"],
+        "category": row["category"],
+        "relation_type": row["relation_type"],
+        "relation_label": row["relation_label"],
+        "action_type": row["action_type"],
+        "action_label": _build_action_label(row["action_type"]),
+        "emotion": row["emotion"],
+        "price_or_exchange": row["price_or_exchange"],
+        "condition_note": row["condition_note"],
+        "city_blur": row["city_blur"],
+        "is_anonymous": bool(row["is_anonymous"]),
+        "anonymous_nickname": row["anonymous_nickname"],
+        "status": row["status"],
+        "story": story,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "review": review_info,
+    })
+
+
+@router.post("/me/gifts/{gift_id}/resubmit")
+def resubmit_my_gift(gift_id: str, request: Request):
+    """
+    重新提交礼物审核。
+    Phase 2H-1: 仅 draft / needs_edit 可重新提交。
+    重新运行审核，状态变为 pending_review（保守策略）。
+    """
+    user_id = _require_auth(request)
+    conn = get_connection()
+
+    # Verify ownership
+    owner_id = _get_gift_owner(gift_id, conn)
+    if owner_id is None:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+    if owner_id != user_id:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+
+    # Check current status
+    cur = conn.execute("SELECT status FROM gifts WHERE id = ?", [gift_id])
+    current_status = cur.fetchone()["status"]
+    if current_status not in _RESUBMITTABLE_STATUSES:
+        close_connection(conn)
+        raise HTTPException(
+            status_code=409,
+            detail={"code": 409, "message": f"当前状态「{current_status}」不允许重新提交", "data": None}
+        )
+
+    # Fetch story for re-review
+    cur = conn.execute(
+        "SELECT short_story, full_story FROM gift_stories WHERE gift_id = ?",
+        [gift_id]
+    )
+    story_row = cur.fetchone()
+    short_story = story_row["short_story"] if story_row else ""
+    full_story = story_row["full_story"] if story_row else ""
+
+    # Re-run review
+    review_info = _review_and_log(gift_id, short_story, full_story, conn)
+    risk_level = review_info["risk_level"]
+
+    # Conservative: always pending_review after resubmit
+    new_status = "pending_review"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn.execute(
+        "UPDATE gifts SET status = ?, updated_at = ? WHERE id = ?",
+        [new_status, now, gift_id]
+    )
+    conn.commit()
+    close_connection(conn)
+
+    return wrap({
+        "gift_id": gift_id,
+        "previous_status": current_status,
+        "new_status": new_status,
+        "risk_level": risk_level,
+        "review": review_info,
+    }, message="已重新进入审核队列")
+
+
+@router.post("/me/gifts/{gift_id}/archive")
+def archive_my_gift(gift_id: str, request: Request):
+    """
+    撤回（归档）自己的礼物。
+    Phase 2H-1: published / pending_review / needs_edit 可归档。
+    状态变为 archived，普通列表不再返回。
+    """
+    user_id = _require_auth(request)
+    conn = get_connection()
+
+    # Verify ownership
+    owner_id = _get_gift_owner(gift_id, conn)
+    if owner_id is None:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+    if owner_id != user_id:
+        close_connection(conn)
+        raise HTTPException(status_code=404, detail="礼物不存在")
+
+    # Check current status
+    cur = conn.execute("SELECT status FROM gifts WHERE id = ?", [gift_id])
+    current_status = cur.fetchone()["status"]
+    if current_status not in _ARCHIVABLE_STATUSES:
+        close_connection(conn)
+        raise HTTPException(
+            status_code=409,
+            detail={"code": 409, "message": f"当前状态「{current_status}」不允许归档", "data": None}
+        )
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "UPDATE gifts SET status = ?, updated_at = ? WHERE id = ?",
+        ["archived", now, gift_id]
+    )
+
+    # Log to admin_actions as user action (MVP temporary pattern)
+    action_id = f"act-{uuid.uuid4().hex[:8]}"
+    conn.execute("""
+        INSERT INTO admin_actions (id, admin_id, target_type, target_id, action, note, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        action_id, f"self:{user_id}", "gift", gift_id, "take_action",
+        f"用户自行归档礼物（原状态：{current_status}）", now
+    ))
+
+    conn.commit()
+    close_connection(conn)
+
+    return wrap({
+        "gift_id": gift_id,
+        "previous_status": current_status,
+        "new_status": "archived",
+    }, message="这件礼物已暂时收起")

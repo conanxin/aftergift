@@ -20,6 +20,7 @@
 | Phase 2F | Admin 增强 + 举报队列 | 100% | 审核队列增强、举报管理、Admin 操作历史 |
 | Phase 2G-1 | 搜索 API + 前端搜索 UI | 100% | 多维搜索、筛选、分页、排序 |
 | Phase 2G-2 | 我的发布 / 我的收藏 | 100% | mine=true、favorites_of=me、前端筛选标签、状态 badge |
+| Phase 2H-1 | 我的发布管理 | 100% | GET/PATCH/resubmit/archive、前端编辑 Modal、状态机保护 |
 
 ---
 
@@ -250,12 +251,12 @@ Phase 2G（内容发现）
   ├── 2G-1 搜索 API + 前端搜索 UI ✅
   └── 2G-2 我的发布 / 我的收藏 ✅
 
-Phase 2H（个人内容管理增强）🔲 下一步推荐
-  ├── 编辑已发布/退回的故事
-  ├── 删除自己的故事
-  └── 重新提交审核
+Phase 2H（个人内容管理增强）✅ 已完成
+  ├── 编辑已发布/退回的故事 ✅
+  ├── 删除自己的故事 🔲
+  └── 重新提交审核 ✅
 
-Phase 2I（基础内容推荐）🔲 候选
+Phase 2I（基础内容推荐）🔲 下一步推荐
   ├── 按情绪/关系类型推荐相似故事
   ├── 热门故事排序
   └── 新发布故事流
@@ -271,4 +272,27 @@ Phase 3B（交易功能）
 
 ---
 
-*文档更新：Phase 2G-2 完成后（2026-05-16）。*
+## 9. Phase 2H-1 执行摘要
+
+### 已完成
+- `GET /api/gifts/me/gifts/{id}`：用户查看自己的礼物详情（含审核备注）
+- `PATCH /api/gifts/me/gifts/{id}`：编辑礼物（仅 draft/pending_review/needs_edit）
+- `POST /api/gifts/me/gifts/{id}/resubmit`：重新提交审核（needs_edit/draft → pending_review）
+- `POST /api/gifts/me/gifts/{id}/archive`：撤回归档（published/pending_review/needs_edit → archived）
+- 前端"我的发布"卡片操作按钮 + 编辑 Modal
+- 编辑 story 后自动重新审核，review_logs 脱敏
+- 全量测试 105/105 PASS
+
+### 当前限制
+- 路径层级较深：`/api/gifts/me/gifts/{id}`（因 gifts router prefix）
+- 无草稿自动保存
+- 归档后无法恢复
+- 无用户操作历史时间线
+
+### 下一步建议
+**Phase 2I：基础内容推荐**（按情绪/关系类型推荐相似故事、热门排序、新发布流）
+或 **Phase 2H-2：草稿箱 / 撤回记录**（自动保存、归档恢复、操作历史）
+
+---
+
+*文档更新：Phase 2H-1 完成后（2026-05-16）。*

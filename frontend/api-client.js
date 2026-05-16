@@ -536,6 +536,48 @@
     return token ? 'Bearer ' + token : null;
   }
 
+  function getMyGift(giftId) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId), { headers: headers }).then(unwrap).then(normalizeGift);
+  }
+
+  function updateMyGift(giftId, payload) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId), {
+      method: 'PATCH',
+      headers: headers,
+      body: JSON.stringify(payload)
+    }).then(unwrap).then(normalizeGift);
+  }
+
+  function resubmitMyGift(giftId) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId) + '/resubmit', {
+      method: 'POST',
+      headers: headers
+    }).then(unwrap);
+  }
+
+  function archiveMyGift(giftId) {
+    if (MODE !== 'api') return Promise.reject(new Error('API mode required'));
+    var token = getStoredToken();
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return apiFetch('/api/gifts/me/gifts/' + encodeURIComponent(giftId) + '/archive', {
+      method: 'POST',
+      headers: headers
+    }).then(unwrap);
+  }
+
   // ── Export ─────────────────────────────────────────────────────────────────
 
   window.AftergiftAPI = {
@@ -552,6 +594,11 @@
     listGifts:      listGifts,
     getGift:        getGift,
     createGift:     createGift,
+    // My Gifts (Phase 2H-1)
+    getMyGift:      getMyGift,
+    updateMyGift:   updateMyGift,
+    resubmitMyGift: resubmitMyGift,
+    archiveMyGift:  archiveMyGift,
     // Story
     reviewStory:    reviewStory,
     // Favorites

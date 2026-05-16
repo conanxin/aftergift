@@ -229,14 +229,47 @@ TOKEN_EXPIRY_DAYS=***
 - [x] 语法检查 PASS
 - [x] 文档更新：MY_GIFTS.md, API_DESIGN.md, API_INTEGRATION.md, PHASE2_PLAN.md
 
-### 2G-3：基础内容推荐 / 热门故事 🔲 待开始
+## Phase 2H：我的发布管理 ✅ 已完成
+
+**目标**：增强"我的发布"管理能力，允许用户编辑、重新提交、归档自己的礼物
+
+**交付物**：
+
+### 2H-1：我的发布管理 ✅ 已完成
+- [x] `GET /api/gifts/me/gifts/{id}`：获取自己的礼物详情（含 review_note）
+- [x] `PATCH /api/gifts/me/gifts/{id}`：编辑自己的礼物（draft/pending_review/needs_edit）
+- [x] `POST /api/gifts/me/gifts/{id}/resubmit`：重新提交审核（needs_edit/draft → pending_review）
+- [x] `POST /api/gifts/me/gifts/{id}/archive`：撤回归档（published/pending_review/needs_edit → archived）
+- [x] 前端"我的发布"卡片操作按钮：编辑故事 / 重新提交 / 暂时收起
+- [x] 前端编辑 Modal（轻量表单，API 模式专用）
+- [x] 状态机保护：不可编辑 published/rejected/archived，不可 resubmit published，不可 archive draft/rejected
+- [x] 编辑 story 后自动重新审核，写入 review_logs，suggestions/evidence 仍脱敏
+- [x] archived 不出现在普通 GET，但 mine=true 仍可看到
+- [x] 用户归档行为写入 admin_actions（MVP 临时方案：admin_id="self:<user_id>"）
+- [x] 测试 14/14 PASS
+- [x] 全量测试 PASS（105/105）
+- [x] 语法检查 PASS
+- [x] 文档更新：MY_GIFT_MANAGEMENT.md, API_DESIGN.md, PHASE2_PLAN.md, API_INTEGRATION.md, NEXT_STEPS.md
+
+### 2H-2：草稿箱 / 撤回记录 🔲 待开始
+- [ ] 草稿自动保存（localStorage 或后端 draft 表）
+- [ ] 归档礼物恢复功能
+- [ ] 用户操作历史（编辑/提交/归档时间线）
+
+---
+
+## Phase 2I：基础内容推荐 🔲 待开始
+
+**目标**：实现按情绪/关系类型的基础内容推荐
+
+**交付物**：
 - [ ] 按情绪/关系类型推荐相似故事
 - [ ] 热门故事排序（收藏数/浏览数）
 - [ ] 新发布故事流
 
 ---
 
-## Phase 2F：Admin 审核台增强 + 举报队列 ✅ 已完成
+## Phase 2G：小范围本地内测 🔲 待开始
 
 **目标**：完善管理员工具，建立举报管理操作历史
 
@@ -339,12 +372,14 @@ Phase 2B  ✅ FastAPI 骨架
 Phase 2C  ✅ SQLite MVP + API 联调
 Phase 2D  ✅ 匿名身份 + Admin 审核 UI
 Phase 2E  ✅ PyJWT 升级 + Moderation Provider 抽象 + 审核日志脱敏 + OpenAI Provider 沙箱
-Phase 2F  🔲 Admin 增强 + 举报队列
-Phase 2G  🔲 小范围本地内测
+Phase 2F  ✅ Admin 增强 + 举报队列
+Phase 2G  ✅ 搜索 API + 我的发布/收藏
+Phase 2H  ✅ 我的发布管理（编辑/重新提交/归档）
+Phase 2I  🔲 基础内容推荐
 Phase 3A  🔲 社区功能（收藏、评论、私信）
 Phase 3B  🔲 交易功能（担保交易、物流、交换撮合）
 ```
 
 ---
 
-*最后更新：Phase 2D 完成后（2026-05-16）。*
+*最后更新：Phase 2H-1 完成后（2026-05-16）。*
