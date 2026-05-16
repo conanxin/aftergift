@@ -14,8 +14,8 @@
 | Phase 2C | 前后端双模式联调 | 100% | static 模式（默认）+ API 模式（`?api=local`） |
 | Phase 2D | 匿名身份 + Admin UI | 100% | HMAC token、27 字段审核队列、Admin Review Panel |
 | Phase 2E-1 | PyJWT Token 升级 | 100% | **本阶段已完成** — HMAC → PyJWT JWT，payload=sub/role/jti/iat/exp |
-| Phase 2E-2 | Moderation Provider 抽象 | 0% | Mock/OpenAI/Baidu 可切换 Provider |
-| Phase 2F | Admin 增强 + 举报队列 | 0% | |
+| Phase 2E-2 | Moderation Provider 抽象 | 100% | **本阶段已完成** — Provider 抽象层、Mock/OpenAI/Baidu 可切换 |
+| Phase 2E-3 | 审核日志脱敏 | 0% | 敏感信息过滤、存储脱敏 |
 | Phase 2G | 本地内测 | 0% | |
 
 ---

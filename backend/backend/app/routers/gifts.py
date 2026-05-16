@@ -186,11 +186,28 @@ def create_gift(
     # 2. Generate IDs
     gift_id = f"gift-{uuid.uuid4().hex[:8]}"
     story_id = f"story-{uuid.uuid4().hex[:8]}"
+    review_log_id = f"review-{uuid.uuid4().hex[:8]}"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 3. Extract flat risk flags for review_logs (backward compat with old schema)
+    def _issue_flag(issues, category, subtype=None):
+        for i in issues:
+            if subtype:
+                if i.get("category") == category and i.get("subtype") == subtype:
+                    return i.get("severity", "medium")
+            else:
+                if i.get("category") == category:
+                    return i.get("severity", "medium")
+        return "none"
+
+    issues = review_result.get("issues", [])
+    identity_risk = _issue_flag(issues, "identity")
+    attack_risk = _issue_flag(issues, "attack")
+    identifiable_person_risk = _issue_flag(issues, "identifiable_person")
 
     conn = get_connection()
 
-    # 3. Insert gift
+    # 4. Insert gift
     conn.execute("""
         INSERT INTO gifts (id, user_id, title, category, relation_type, relation_label,
                           action_type, emotion, price_or_exchange, condition_note,
@@ -205,18 +222,27 @@ def create_gift(
         publish_status, now, now
     ))
 
-    # 4. Insert story
+    # 5. Insert story
     conn.execute("""
         INSERT INTO gift_stories (id, gift_id, short_story, full_story,
                                   story_quality_score, risk_level, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         story_id, gift_id, gift.short_story, gift.full_story,
-        review_result["overall_score"], risk_level, now
+        review_result.get("overall_score", 80), risk_level, now
     ))
 
-    # 5. Insert review log
-    review_log_id = f"review-{uuid.uuid4().hex[:8]}"
+    # Map provider name to reviewer_type enum value
+    PROVIDER_TO_REVIEWER_TYPE = {
+        "mock": "ai_rule_engine",
+        "openai": "ai_moderation_api",
+        "baidu": "ai_moderation_api",
+    }
+    reviewer_type = PROVIDER_TO_REVIEWER_TYPE.get(
+        review_result.get("provider", "mock"), "ai_rule_engine"
+    )
+
+    # 6. Insert review log
     conn.execute("""
         INSERT INTO review_logs (id, gift_id, risk_level, identity_risk,
                                  attack_risk, identifiable_person_risk,
@@ -225,11 +251,10 @@ def create_gift(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         review_log_id, gift_id, risk_level,
-        review_result["identity_risk"], review_result["attack_risk"],
-        review_result["identifiable_person_risk"],
-        str(review_result["quality_notes"]),
-        str(review_result["suggestions"]),
-        "ai_rule_engine",
+        identity_risk, attack_risk, identifiable_person_risk,
+        str(review_result.get("quality_notes", {})),
+        str(review_result.get("suggestions", [])),
+        reviewer_type,
         "approve" if risk_level == "safe" else None,
         now
     ))
@@ -245,7 +270,7 @@ def create_gift(
             "estimated_review_time": "即时发布" if risk_level == "safe" else "需修改后重新提交" if risk_level == "caution" else "24小时内",
             "review": {
                 "risk_level": risk_level,
-                "issues_count": len(review_result["issues"]),
+                "issues_count": len(review_result.get("issues", [])),
             }
         },
         code=201,

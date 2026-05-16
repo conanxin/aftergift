@@ -141,16 +141,21 @@
 - [x] 12/12 合同测试 PASS
 - [x] 6/6 运行时验证 PASS（201 JWT / 200 / 401 / 403）
 
-### 2E-2：Moderation Provider 抽象 🔲 待开始
-- [ ] 建立 `services/moderation/` 目录
-- [ ] 定义 `ModerationProvider` 抽象基类
-- [ ] 实现 `MockModerationProvider`（Phase 2D 现有正则逻辑）
-- [ ] 实现 `OpenAIModerationProvider`（调用 OpenAI Moderation API）
-- [ ] 实现 `BaiduModerationProvider`（调用百度内容审核 API）
-- [ ] Provider 选择通过 `MODERATION_PROVIDER` 环境变量（`mock` / `openai` / `baidu`）
-- [ ] `review_service.py` 调用抽象 provider
+### 2E-2：Moderation Provider 抽象 ✅ 已完成
+- [x] 建立 `services/moderation/` 目录
+- [x] 定义 `ModerationProvider` 协议 + `ModerationResult` dataclass
+- [x] 实现 `MockModerationProvider`（Phase 2D 正则逻辑迁移）
+- [x] 实现 `OpenAIModerationProvider` skeleton（默认 mock fallback）
+- [x] 实现 `BaiduModerationProvider` skeleton（默认 mock fallback）
+- [x] `factory.py` — provider 选择 + fallback 逻辑
+- [x] `review_service.py` — 包装 factory，保持 `mock_review()` 兼容
+- [x] config.py 添加 MODERATION_PROVIDER / ENABLE_REAL_AI_REVIEW / OPENAI_API_KEY / BAIDU_CONTENT_REVIEW_API_KEY
+- [x] .env.example 添加对应配置
+- [x] reviewer_type → mock=ai_rule_engine / openai&baidu=ai_moderation_api
+- [x] 测试 11/11 PASS
+- [x] 旧 test_fastapi_contract.py 8/8 PASS
 
-### 2E-3：审核日志脱敏
+### 2E-3：审核日志脱敏 🔲 待开始
 - [ ] `review_logs` 表中 `ai_input` / `ai_output` 字段在写入前脱敏
 - [ ] 移除 `short_story` / `full_story` 中的人名、手机号、地址、公司
 - [ ] 记录脱敏操作本身（不记录原始内容）

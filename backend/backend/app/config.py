@@ -26,6 +26,14 @@ JWT_SECRET: str = os.getenv("AFTERGIFT_JWT_SECRET", "replace-this-dev-secret")
 JWT_ALGORITHM: str = os.getenv("AFTERGIFT_JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_TTL_SECONDS: int = int(os.getenv("AFTERGIFT_ACCESS_TOKEN_TTL_SECONDS", "604800"))
 
+# ── Phase 2E-2: Moderation Provider ─────────────────────────────────────────
+MODERATION_PROVIDER: str = os.getenv("AFTERGIFT_MODERATION_PROVIDER", "mock")
+# OPENAI_API_KEY: Set to your OpenAI key (sk-...) — only used when provider=openai
+OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+# BAIDU_CONTENT_REVIEW_API_KEY: Set to your Baidu API key — only used when provider=baidu
+BAIDU_CONTENT_REVIEW_API_KEY: str = os.getenv("BAIDU_CONTENT_REVIEW_API_KEY", "")
+# Note: ENABLE_REAL_AI_REVIEW is defined above
+
 # ── Derived flags ───────────────────────────────────────────────────────────
 
 IS_DEV: bool = ENV == "development"
