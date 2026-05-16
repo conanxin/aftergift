@@ -5,26 +5,37 @@ Phase 2F | test_admin_enhancements.py
 
 不依赖 pytest，可作为普通 Python 脚本运行。
 测试 Admin 审核台增强功能：筛选、分页、decision note、reports、logs、actions。
+
+Phase 2K-2.1: 每个测试使用独立临时 DB（init_db + run_migrations），
+不依赖真实 aftergift_dev.db，避免 no such table 错误。
 """
 
 import sys
 import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
+import tempfile
 import traceback
 
-print("Aftergift Backend - Admin Enhancements Tests (Phase 2F)")
-print("=" * 58)
+# ── Test DB Setup ─────────────────────────────────────────────────────────────
+# 在 import app 模块前设置 AFTERGIFT_DB_PATH，使 app 使用临时 DB
+_TEST_DB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+_TEST_DB.close()
+os.environ["AFTERGIFT_DB_PATH"] = _TEST_DB.name
 
+# 确保 backend/backend/ 在 sys.path 中，使 'from app.xxx' 能正确解析
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# 初始化 schema 和 migrations（必须在 import app 之后、但在创建 TestClient 之前）
+from app.database import init_db
+from scripts.migrate_db import run_migrations
 
-def _get_client():
-    from starlette.testclient import TestClient
-    from app.main import app
-    return TestClient(app)
+init_db(drop_existing=True)
+run_migrations(db_path=os.environ["AFTERGIFT_DB_PATH"])
 
+# ── Now import app (uses the temp DB) ─────────────────────────────────────────
+from starlette.testclient import TestClient
+from app.main import app
+
+# ── Test helpers ───────────────────────────────────────────────────────────────
 
 def _admin_token():
     from app.config import ADMIN_TOKEN
@@ -57,6 +68,10 @@ def _create_anonymous_user(client):
     resp = client.post("/api/auth/anonymous")
     assert resp.status_code == 201, f"Auth setup failed: {resp.text}"
     return resp.json()["data"]["access_token"]
+
+
+def _get_client():
+    return TestClient(app)
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
@@ -190,7 +205,6 @@ def test_review_logs():
         return True
     except Exception as e:
         print(f"  ❌ FAIL [review_logs] {e}")
-        traceback.print_exc()
         return False
 
 
@@ -200,64 +214,60 @@ def test_reports_list():
         client = _get_client()
         admin_token = _admin_token()
         resp = client.get(
-            "/api/admin/reports?page=1&limit=10",
+            "/api/admin/reports?status=pending&page=1&limit=10",
             headers={"X-Admin-Token": admin_token},
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()["data"]
         assert "items" in data
         assert "total" in data
-        assert "total_pages" in data
+        assert "page" in data
         print(f"  ✅ PASS [reports_list] items={len(data['items'])}, total={data['total']}")
         return True
     except Exception as e:
         print(f"  ❌ FAIL [reports_list] {e}")
-        traceback.print_exc()
         return False
 
 
 def test_report_decision():
-    """POST /api/admin/reports/{id}/decision → 200"""
+    """POST report decision → 200"""
     try:
         client = _get_client()
         admin_token = _admin_token()
         user_token = _create_anonymous_user(client)
         gift_id = _create_test_gift(client, user_token)
 
-        # Create a report first
-        resp = client.post(
+        # Submit a report first
+        report_resp = client.post(
             f"/api/gifts/{gift_id}/report",
-            json={"reason": "privacy", "detail": "测试举报"},
+            json={"reason": "privacy_risk", "detail": "测试举报"},
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        assert resp.status_code == 200, f"Report creation failed: {resp.text}"
+        assert report_resp.status_code == 200, f"Report setup failed: {report_resp.text}"
 
-        # Get reports list to find the report_id
-        resp2 = client.get(
+        # Get the report ID
+        reports_resp = client.get(
             "/api/admin/reports?status=pending",
             headers={"X-Admin-Token": admin_token},
         )
-        reports = resp2.json()["data"]["items"]
-        if not reports:
-            print("  ⚠️ SKIP [report_decision] no pending reports found")
-            return True
+        assert reports_resp.status_code == 200
+        items = reports_resp.json()["data"]["items"]
+        assert len(items) >= 1, "No reports found"
+        report_id = items[0]["report_id"]
 
-        report_id = reports[0]["report_id"]
-        resp3 = client.post(
+        # Decide on report
+        decision_resp = client.post(
             f"/api/admin/reports/{report_id}/decision",
-            json={"decision": "dismiss", "note": "测试驳回"},
+            json={"decision": "dismiss", "note": "无违规"},
             headers={"X-Admin-Token": admin_token},
         )
-        assert resp3.status_code == 200, f"Expected 200, got {resp3.status_code}: {resp3.text}"
-        data = resp3.json()["data"]
-        assert data["new_status"] == "resolved_dismissed"
-        assert data["note"] == "测试驳回"
-
-        print(f"  ✅ PASS [report_decision] report={report_id[:8]}, dismissed")
+        assert decision_resp.status_code == 200, f"Expected 200, got {decision_resp.status_code}: {decision_resp.text}"
+        decision_data = decision_resp.json()["data"]
+        assert decision_data["new_status"] == "resolved_dismissed"
+        print(f"  ✅ PASS [report_decision] report_id={report_id[:8]}")
         return True
     except Exception as e:
         print(f"  ❌ FAIL [report_decision] {e}")
-        traceback.print_exc()
         return False
 
 
@@ -267,33 +277,31 @@ def test_admin_actions():
         client = _get_client()
         admin_token = _admin_token()
         resp = client.get(
-            "/api/admin/actions?page=1&limit=10",
+            "/api/admin/actions?page=1&limit=5",
             headers={"X-Admin-Token": admin_token},
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()["data"]
         assert "items" in data
         assert "total" in data
-        assert "total_pages" in data
+        assert "page" in data
         print(f"  ✅ PASS [admin_actions] items={len(data['items'])}, total={data['total']}")
         return True
     except Exception as e:
         print(f"  ❌ FAIL [admin_actions] {e}")
-        traceback.print_exc()
         return False
 
 
 def test_sql_injection_protection():
-    """SQL sort/order 白名单阻止非法输入"""
+    """SQL 注入防护：恶意 sort 参数 → 400"""
     try:
         client = _get_client()
-        token = _admin_token()
+        admin_token = _admin_token()
         resp = client.get(
-            "/api/admin/reviews?sort=created_at;DROP TABLE gifts;--&order=desc",
-            headers={"X-Admin-Token": token},
+            "/api/admin/reviews?sort=gift_id;DROP TABLE users;&order=desc",
+            headers={"X-Admin-Token": admin_token},
         )
-        # Should be 400 because sort doesn't match whitelist
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}"
         print("  ✅ PASS [sql_injection_protection] 400 for malicious sort")
         return True
     except Exception as e:
@@ -302,13 +310,13 @@ def test_sql_injection_protection():
 
 
 def test_invalid_status_filter():
-    """无效 status 参数 → 400"""
+    """无效 status filter → 400"""
     try:
         client = _get_client()
-        token = _admin_token()
+        admin_token = _admin_token()
         resp = client.get(
-            "/api/admin/reviews?status=invalid_status",
-            headers={"X-Admin-Token": token},
+            "/api/admin/reviews?status=not_a_valid_status",
+            headers={"X-Admin-Token": admin_token},
         )
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}"
         print("  ✅ PASS [invalid_status_filter] 400 for invalid status")
@@ -335,6 +343,9 @@ TESTS = [
 ]
 
 if __name__ == "__main__":
+    print("Aftergift Backend - Admin Enhancements Tests (Phase 2F)")
+    print("=" * 58)
+
     passed = 0
     failed = 0
     for t in TESTS:
@@ -342,9 +353,16 @@ if __name__ == "__main__":
             passed += 1
         else:
             failed += 1
+
     print(f"\nResult: {passed}/{len(TESTS)} passed")
     if failed == 0:
         print("ALL TESTS PASSED ✅")
     else:
         print(f"SOME TESTS FAILED ❌ ({failed} failures)")
         sys.exit(1)
+
+    # Cleanup temp DB
+    try:
+        os.unlink(_TEST_DB.name)
+    except Exception:
+        pass

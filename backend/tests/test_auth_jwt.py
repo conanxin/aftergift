@@ -5,19 +5,48 @@ Phase 2E-1 | test_auth_jwt.py
 
 不依赖 pytest，可作为普通 Python 脚本运行。
 测试 PyJWT token 生成、验证、过期处理、401/403 语义。
+
+Phase 2K-2.1: 在导入 app 模块前设置 AFTERGIFT_DB_PATH 到临时 DB，
+并执行 init_db + run_migrations，避免 no such table 错误。
 """
 
 import sys
 import os
-
-# Add backend/backend/ to path so 'from app import ...' works
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
 import time
 import traceback
+import tempfile
+
+# ── Test DB Setup ─────────────────────────────────────────────────────────────
+# 在 import app 模块前设置 AFTERGIFT_DB_PATH，使 app 使用临时 DB
+_TEST_DB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+_TEST_DB.close()
+os.environ["AFTERGIFT_DB_PATH"] = _TEST_DB.name
+
+# 确保 backend/backend/ 在 sys.path 中
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+
+# 初始化 schema 和 migrations
+from app.database import init_db
+from scripts.migrate_db import run_migrations
+
+init_db(drop_existing=True)
+run_migrations(db_path=os.environ["AFTERGIFT_DB_PATH"])
+
+# ── Now import app (uses the temp DB) ─────────────────────────────────────────
+from starlette.testclient import TestClient
+from app.main import app
 
 print("Aftergift Backend - JWT Auth Contract Tests (Phase 2E-1)")
 print("=" * 56)
+
+
+def extract_error_message(data):
+    """兼容 FastAPI HTTPException 的两种响应格式：{message} 或 {detail: {message}}"""
+    if isinstance(data, dict):
+        if isinstance(data.get("detail"), dict):
+            return data["detail"].get("message", "")
+        return data.get("message", "")
+    return ""
 
 
 def test_imports():
@@ -71,9 +100,9 @@ def test_invalid_token():
     try:
         from app.auth import decode_access_token
         cases = [
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9.INVALID_SIGNATURE",
+            "eyJhbG...TURE",
             "not.a.jwt.at.all",
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid_payload_base64!",
+            "eyJhbG...se64!",
             "",
         ]
         for tok in cases:
@@ -115,20 +144,9 @@ def test_expired_token():
         return False
 
 
-def extract_error_message(data):
-    """兼容 FastAPI HTTPException 的两种响应格式：{message} 或 {detail: {message}}"""
-    if isinstance(data, dict):
-        if isinstance(data.get("detail"), dict):
-            return data["detail"].get("message", "")
-        return data.get("message", "")
-    return ""
-
-
 def test_require_auth_no_header():
     """_require_auth: 缺少 Authorization → 401"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         resp = client.get("/api/auth/me")
         assert resp.status_code == 401, f"Expected 401, got {resp.status_code}: {resp.text}"
@@ -146,8 +164,6 @@ def test_require_auth_no_header():
 def test_require_auth_wrong_format():
     """Authorization 格式错误（非 Bearer） → 401"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         resp = client.get("/api/auth/me", headers={"Authorization": "Basic abc123"})
         # Could be 401 or 403 depending on implementation detail
@@ -162,8 +178,6 @@ def test_require_auth_wrong_format():
 def test_require_auth_invalid_token():
     """无效 token → 403"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         resp = client.get("/api/auth/me", headers={"Authorization": "Bearer invalid.token.here"})
         assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
@@ -177,8 +191,6 @@ def test_require_auth_invalid_token():
 def test_create_anonymous_returns_jwt():
     """POST /api/auth/anonymous → 201 + JWT in response"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         resp = client.post("/api/auth/anonymous")
         assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
@@ -198,8 +210,6 @@ def test_create_anonymous_returns_jwt():
 def test_auth_me_valid_token():
     """GET /api/auth/me 带有效 Bearer token → 200 + user info"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         # Create anonymous user
         resp = client.post("/api/auth/anonymous")
@@ -226,8 +236,6 @@ def test_auth_me_valid_token():
 def test_gifts_requires_auth():
     """POST /api/gifts 无 token → 401"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
         response = client.post(
             "/api/gifts",
@@ -255,10 +263,8 @@ def test_gifts_requires_auth():
 def test_gifts_with_valid_token():
     """POST /api/gifts 带有效 token → 201 (status=safe) 或 200 (status=needs_edit)"""
     try:
-        from starlette.testclient import TestClient
-        from app.main import app
         client = TestClient(app)
-        # Create anonymous user
+        # Create anonymous user (uses temp DB which now has users table)
         resp = client.post("/api/auth/anonymous")
         assert resp.status_code == 201, f"Setup failed: {resp.text}"
         token = resp.json()["data"]["access_token"]
@@ -289,40 +295,45 @@ def test_gifts_with_valid_token():
         return False
 
 
-def main():
-    tests = [
-        test_imports,
-        test_token_structure,
-        test_token_payload,
-        test_invalid_token,
-        test_expired_token,
-        test_require_auth_no_header,
-        test_require_auth_wrong_format,
-        test_require_auth_invalid_token,
-        test_create_anonymous_returns_jwt,
-        test_auth_me_valid_token,
-        test_gifts_requires_auth,
-        test_gifts_with_valid_token,
-    ]
+# ── Runner ───────────────────────────────────────────────────────────────────
 
-    results = []
-    for t in tests:
-        try:
-            results.append(t())
-        except Exception as e:
-            print(f"  ❌ CRASH in {t.__name__}: {e}")
-            results.append(False)
-
-    passed = sum(results)
-    total = len(results)
-    print(f"\nResult: {passed}/{total} passed")
-    if passed == total:
-        print("ALL TESTS PASSED ✅")
-        sys.exit(0)
-    else:
-        print("SOME TESTS FAILED ❌")
-        sys.exit(1)
-
+TESTS = [
+    test_imports,
+    test_token_structure,
+    test_token_payload,
+    test_invalid_token,
+    test_expired_token,
+    test_require_auth_no_header,
+    test_require_auth_wrong_format,
+    test_require_auth_invalid_token,
+    test_create_anonymous_returns_jwt,
+    test_auth_me_valid_token,
+    test_gifts_requires_auth,
+    test_gifts_with_valid_token,
+]
 
 if __name__ == "__main__":
-    main()
+    passed = 0
+    failed = 0
+    for t in TESTS:
+        try:
+            if t():
+                passed += 1
+            else:
+                failed += 1
+        except Exception as e:
+            print(f"  ❌ CRASH in {t.__name__}: {e}")
+            failed += 1
+
+    print(f"\nResult: {passed}/{len(TESTS)} passed")
+    if passed == len(TESTS):
+        print("ALL TESTS PASSED ✅")
+    else:
+        print(f"SOME TESTS FAILED ❌ ({failed} failures)")
+        sys.exit(1)
+
+    # Cleanup temp DB
+    try:
+        os.unlink(_TEST_DB.name)
+    except Exception:
+        pass
