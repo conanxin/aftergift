@@ -396,6 +396,7 @@ Phase 2E  ✅ PyJWT 升级 + Moderation Provider 抽象 + 审核日志脱敏 + O
 Phase 2F  ✅ Admin 增强 + 举报队列
 Phase 2G  ✅ 搜索 API + 我的发布/收藏
 Phase 2H  ✅ 我的发布管理（编辑/重新提交/归档）
+Phase 2K  ✅ 收藏视图（?view=favorites、Hero 收藏入口、静态/Api 双模式 localStorage 持久化）
 Phase 2I  🔲 基础内容推荐
 Phase 3A  🔲 社区功能（收藏、评论、私信）
 Phase 3B  🔲 交易功能（担保交易、物流、交换撮合）

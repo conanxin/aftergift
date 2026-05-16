@@ -115,6 +115,10 @@
       created_at: g.created_at || null,
       // Phase 2I-1
       favorite_count: g.favorite_count || 0,
+      // Phase 2J-1: is_favorited from API responses
+      is_favorited: !!(g.is_favorited || g.favorited),
+      // Phase 2K-1: favorite_created_at from GET favorites_of=me
+      favorite_created_at: g.favorite_created_at || g.created_at || null,
       similarity_score: g.similarity_score || null,
       matched_reason: g.matched_reason || '',
     };
@@ -194,6 +198,14 @@
     // Static mode: filter in-memory
     var q = (filters.q || '').trim().toLowerCase();
     var items = (staticData || []).filter(function (g) {
+      // Phase 2K-1: favorites_of filter (static mode uses localStorage)
+      if (filters.favorites_of === 'me') {
+        try {
+          var stored = localStorage.getItem('aftergift_favorites');
+          var favs = stored ? JSON.parse(stored) : {};
+          if (!favs[g.id]) return false;
+        } catch (e) { return false; }
+      }
       if (filters.action_type && filters.action_type !== 'all') {
         if (g.action !== filters.action_type && g.action_type !== filters.action_type) return false;
       }
@@ -468,6 +480,9 @@
   function favoriteGift(id) {
     if (MODE === 'api') {
       var token = getStoredToken();
+      if (!token) {
+        return Promise.reject({ message: '请先创建匿名身份，再收藏这个故事。', status: 401 });
+      }
       var headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = 'Bearer ' + token;
       return apiFetch('/api/gifts/' + encodeURIComponent(id) + '/favorite', {
@@ -475,12 +490,22 @@
         headers:  headers
       }).then(unwrap);
     }
-    return Promise.resolve({ ok: true, mode: 'static' });
+    // Static mode: update localStorage
+    try {
+      var stored = localStorage.getItem('aftergift_favorites');
+      var favs = stored ? JSON.parse(stored) : {};
+      favs[id] = true;
+      localStorage.setItem('aftergift_favorites', JSON.stringify(favs));
+    } catch (e) {}
+    return Promise.resolve({ is_favorited: true, favorite_count: 1, mode: 'static' });
   }
 
   function unfavoriteGift(id) {
     if (MODE === 'api') {
       var token = getStoredToken();
+      if (!token) {
+        return Promise.reject({ message: '请先创建匿名身份，再收藏这个故事。', status: 401 });
+      }
       var headers = {};
       if (token) headers['Authorization'] = 'Bearer ' + token;
       return apiFetch('/api/gifts/' + encodeURIComponent(id) + '/favorite', {
@@ -488,7 +513,14 @@
         headers:  headers
       }).then(unwrap);
     }
-    return Promise.resolve({ ok: true, mode: 'static' });
+    // Static mode: update localStorage
+    try {
+      var stored = localStorage.getItem('aftergift_favorites');
+      var favs = stored ? JSON.parse(stored) : {};
+      delete favs[id];
+      localStorage.setItem('aftergift_favorites', JSON.stringify(favs));
+    } catch (e) {}
+    return Promise.resolve({ is_favorited: false, favorite_count: 0, mode: 'static' });
   }
 
   // ── Report ─────────────────────────────────────────────────────────────────

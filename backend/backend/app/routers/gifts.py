@@ -533,9 +533,28 @@ def similar_gifts(
 
 # ── Get gift detail ──────────────────────────────────────────────────────────
 
+def _get_optional_user_id(request: Request) -> str | None:
+    """Return user_id if valid Bearer token present, else None. Does NOT raise."""
+    if not request:
+        return None
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    return payload.get("sub")
+
+
 @router.get("/{gift_id}")
-def get_gift(gift_id: str):
-    """获取礼物详情（含完整故事）"""
+def get_gift(gift_id: str, request: Request = None):
+    """
+    获取礼物详情（含完整故事）。
+    Phase 2J-1: is_favorited 基于可选认证计算。
+    """
+    # Optional auth — get current user for is_favorited
+    current_user_id = _get_optional_user_id(request) if request else None
     conn = get_connection()
 
     sql = """
@@ -558,6 +577,17 @@ def get_gift(gift_id: str):
 
     if not row:
         raise HTTPException(status_code=404, detail="礼物不存在或暂不可查看")
+
+    # is_favorited: only check if user is logged in
+    is_favorited = False
+    if current_user_id:
+        conn2 = get_connection()
+        cur2 = conn2.execute(
+            "SELECT id FROM favorites WHERE user_id = ? AND gift_id = ?",
+            [current_user_id, gift_id]
+        )
+        is_favorited = cur2.fetchone() is not None
+        close_connection(conn2)
 
     story = None
     if row["short_story"]:
@@ -586,7 +616,7 @@ def get_gift(gift_id: str):
         "story": story,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
-        # Phase 2I-2: real favorite_count from JOIN
+        "is_favorited": is_favorited,
         "favorite_count": row["favorite_count"] if "favorite_count" in row.keys() else 0,
     })
 

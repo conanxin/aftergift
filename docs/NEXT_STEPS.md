@@ -23,6 +23,8 @@
 | Phase 2H-1 | 我的发布管理 | 100% | GET/PATCH/resubmit/archive、前端编辑 Modal、状态机保护 |
 | Phase 2H-2 | 恢复/操作历史/API alias | 100% | restore、user_actions、/api/me/ 路径、编辑草稿自动保存 |
 | Phase 2I-0 | 本地内测准备 | 100% | smoke test、备份脚本、seed 数据指南、反馈表、release notes |
+| Phase 2K-1 | 收藏视图 | 100% | `?view=favorites`、Hero 收藏入口、返回首页、API favorites_of=me、静态模式 localStorage |
+| Phase 2K-2 | 收藏数量 Badge + 排序 | 0% | Hero 收藏按钮数量 Badge、按收藏时间排序 |
 
 ---
 

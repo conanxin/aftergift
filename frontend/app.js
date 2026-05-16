@@ -17,7 +17,9 @@
   var INITIAL_DISPLAY = 8;
   var MAX_DISPLAY = 100;
   var favorites = {};           // { id: true } synced with localStorage
+  var favoritesMeta = {};       // { id: { favorite_created_at: '...', favorite_count: N } }
   var searchMeta = { total: 0, page: 1, limit: 12, total_pages: 0, has_more: false };
+  var currentView = 'home';     // 'home' | 'favorites'
 
   // ── Story Tip Prompts ──
   var STORY_TIPS = [
@@ -56,10 +58,15 @@
   // ── Init ──
   document.addEventListener('DOMContentLoaded', function () {
     loadFavorites();
+    loadFavoritesMeta();
+    checkUrlView();
     loadGifts();
     loadDiscoveryRails();
     bindEvents();
     initTextareas();
+    initDevAuthPanel();
+    bindDevAuthEvents();
+    initAdminPanel();
   });
 
   // ── Favorites (localStorage) ──
@@ -72,34 +79,85 @@
     }
   }
 
+  function loadFavoritesMeta() {
+    try {
+      var stored = localStorage.getItem('aftergift_favorites_meta');
+      favoritesMeta = stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      favoritesMeta = {};
+    }
+  }
+
   function saveFavorites() {
     try {
       localStorage.setItem('aftergift_favorites', JSON.stringify(favorites));
     } catch (e) {}
   }
 
+  function saveFavoritesMeta() {
+    try {
+      localStorage.setItem('aftergift_favorites_meta', JSON.stringify(favoritesMeta));
+    } catch (e) {}
+  }
+
   window.toggleFavorite = function (id) {
-    if (favorites[id]) {
+    var isFav = !!favorites[id];
+    var mode = window.__AF_MODE || 'static';
+
+    if (isFav) {
       delete favorites[id];
-      var mode = window.__AF_MODE || 'static';
-      if (mode === 'api' && window.AftergiftAPI) {
-        window.AftergiftAPI.unfavoriteGift(id).catch(function () {});
-      }
+      delete favoritesMeta[id];
     } else {
       favorites[id] = true;
-      var mode2 = window.__AF_MODE || 'static';
-      if (mode2 === 'api' && window.AftergiftAPI) {
-        window.AftergiftAPI.favoriteGift(id).catch(function () {});
+      // Store local favorite_created_at for static mode
+      if (mode !== 'api') {
+        favoritesMeta[id] = {
+          favorite_created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          favorite_count: 1
+        };
       }
     }
     saveFavorites();
-    // Update heart icon on current card
+    saveFavoritesMeta();
+
+    // Update heart icon optimistically
     var cardHeart = document.querySelector('.gift-card[data-id="' + id + '"] .card-favorite-btn');
-    if (cardHeart) updateHeartIcon(cardHeart, !!favorites[id]);
-    // Update modal heart if open
+    if (cardHeart) updateHeartIcon(cardHeart, !isFav);
     var modalHeart = document.getElementById('modalFavoriteBtn');
-    if (modalHeart) updateHeartIcon(modalHeart, !!favorites[id]);
-    showToast(favorites[id] ? '已收藏这个故事' : '已取消收藏');
+    if (modalHeart) updateHeartIcon(modalHeart, !isFav);
+
+    if (mode === 'api' && window.AftergiftAPI) {
+      var apiCall = isFav
+        ? window.AftergiftAPI.unfavoriteGift(id)
+        : window.AftergiftAPI.favoriteGift(id);
+
+      apiCall.then(function (res) {
+        // Sync with server truth: server may return different state after action
+        // e.g. idempotent call returns is_favorited correctly
+        var serverFav = !!(res && res.is_favorited);
+        favorites[id] = serverFav;
+        saveFavorites();
+        updateHeartIcon(cardHeart, serverFav);
+        if (modalHeart) updateHeartIcon(modalHeart, serverFav);
+      }).catch(function (err) {
+        // Revert optimistic update on failure
+        if (isFav) {
+          favorites[id] = true;
+        } else {
+          delete favorites[id];
+        }
+        saveFavorites();
+        updateHeartIcon(cardHeart, isFav);
+        if (modalHeart) updateHeartIcon(modalHeart, isFav);
+
+        var msg = (err && err.status === 401)
+          ? '请先创建匿名身份，再收藏这个故事。'
+          : '收藏操作失败了，请稍后重试。';
+        showToast(msg);
+      });
+    } else {
+      showToast(isFav ? '已取消收藏' : '已收藏这个故事');
+    }
   };
 
   function updateHeartIcon(btn, isFav) {
@@ -2284,18 +2342,117 @@
       return window.AftergiftAPI.getStoredToken();
     }
 
-    // ── Phase 2D: Init ────────────────────────────────────────────────────────
+    // ── Phase 2K-1: Favorites View ────────────────────────────────────────────
 
-    function initPhase2D() {
-      initDevAuthPanel();
-      bindDevAuthEvents();
-      initAdminPanel();
+    function checkUrlView() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'favorites') {
+        enterFavoritesView();
+      }
     }
 
-    // Run Phase 2D init
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initPhase2D);
-    } else {
-      initPhase2D();
+    window.enterFavoritesView = function () {
+      var mode = window.__AF_MODE || 'static';
+      if (mode === 'api') {
+        var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+          ? window.AftergiftAPI.getStoredToken() : null;
+        if (!token) {
+          showToast('请先创建匿名身份，再查看你的收藏。');
+          return;
+        }
+      }
+      currentView = 'favorites';
+      document.body.classList.add('favorites-view');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      currentFilter = 'my_favorites';
+      displayedCount = INITIAL_DISPLAY;
+      var params = buildListParams();
+      if (mode === 'api' && window.AftergiftAPI) {
+        window.AftergiftAPI.listGifts(params, []).then(function (result) {
+          gifts = result.items;
+          searchMeta = {
+            total: result.total || 0,
+            page: result.page || 1,
+            limit: result.limit || 12,
+            total_pages: result.total_pages || 0,
+            has_more: result.has_more || false
+          };
+          updateFavoritesViewHeader();
+          showModeIndicator('api', result.total || 0);
+          renderGifts();
+        }).catch(function () {
+          showToast('无法加载收藏列表，请检查 API 连接');
+          updateFavoritesViewHeader();
+          renderGifts();
+        });
+      } else {
+        if (window.__AF_STATIC_DATA) {
+          window.AftergiftAPI.listGifts(params, window.__AF_STATIC_DATA).then(function (result) {
+            gifts = result.items;
+            searchMeta = {
+              total: result.total || 0,
+              page: result.page || 1,
+              limit: result.limit || 12,
+              total_pages: result.total_pages || 0,
+              has_more: result.has_more || false
+            };
+            updateFavoritesViewHeader();
+            renderGifts();
+          });
+        } else {
+          updateFavoritesViewHeader();
+          renderGifts();
+        }
+      }
+    };
+
+    window.exitFavoritesView = function () {
+      currentView = 'home';
+      document.body.classList.remove('favorites-view');
+      currentFilter = 'all';
+      displayedCount = INITIAL_DISPLAY;
+      var params = new URLSearchParams(window.location.search);
+      params.delete('view');
+      var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+      loadGifts();
+      document.querySelectorAll('.filter-tab').forEach(function (t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      var allTab = document.querySelector('.filter-tab[data-filter="all"]');
+      if (allTab) {
+        allTab.classList.add('active');
+        allTab.setAttribute('aria-selected', 'true');
+      }
+    };
+
+    function updateFavoritesViewHeader() {
+      var subtitle = document.getElementById('favoritesViewSubtitle');
+      if (!subtitle) return;
+      var total = searchMeta.total || 0;
+      if (total === 0) {
+        subtitle.textContent = '你还没有收藏任何故事。也许下一件打动你的旧物，就在下面的故事里。';
+      } else {
+        subtitle.textContent = '已收藏 ' + total + ' 个故事';
+      }
     }
-})();
+
+    window.updateHeroFavoritesButton = function () {
+      var btn = document.getElementById('heroFavoritesBtn');
+      if (!btn) return;
+      var mode = window.__AF_MODE || 'static';
+      if (mode === 'api') {
+        var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
+          ? window.AftergiftAPI.getStoredToken() : null;
+        btn.style.display = token ? '' : 'none';
+      } else {
+        btn.style.display = '';
+      }
+    };
+
+    window.updateHeroFavoritesButton();
+
+    // ── End Favorites View ──────────────────────────────────────────────────
+
+  })();

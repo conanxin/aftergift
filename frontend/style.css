@@ -2084,6 +2084,58 @@ section { padding: 80px 0; }
     gap: 8px;
   }
 }
+/* ── Phase 2K-1: Favorites View ── */
+.favorites-view-header {
+  padding: 32px 0 0;
+  margin-bottom: 24px;
+}
+.favorites-view-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.favorites-view-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.favorites-view-title svg {
+  color: var(--accent-2);
+}
+.favorites-view-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-3);
+}
+
+/* ── Favorites Mode: hide normal filter tabs ── */
+body.favorites-view .filter-tabs {
+  display: none;
+}
+body.favorites-view .search-bar {
+  display: none;
+}
+body.favorites-view .discovery-rails {
+  display: none;
+}
+body.favorites-view .load-more-wrap {
+  display: none;
+}
+body.favorites-view .favorites-view-header {
+  display: block;
+}
+
+/* ── Phase 2K-1: favorite_created_at in cards ── */
+.gift-card-fav-time {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
 @media (max-width: 640px) {
   .edit-modal-header {
     flex-direction: column;
