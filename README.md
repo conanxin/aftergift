@@ -1,58 +1,91 @@
 # Aftergift / 后来礼物
 
-> 给一件旧礼物，一个体面的下一站。
+> *给一件旧礼物，一个体面的下一站。*
+> *Turn the gifts left behind after a relationship ends into stories that can be shared, circulated, sold, exchanged, or donated.*
 
-## 项目简介
+[English below](#english)
 
-Aftergift 是一个关系旧物的温柔流转平台原型。用户可以发布关系结束、变化或疏远后留下的礼物，写下礼物背后的故事，并选择出售、交换、赠送、捐出或只展示故事。
+---
 
-**核心原则**：温柔、克制、干净、有一点伤感。不鼓励报复、羞辱、猎奇或网暴。
+## 中文说明
 
-## 在线 Demo
+Aftergift（后来礼物）是一个"关系结束后礼物流转与故事记录"的产品原型。它不是普通二手平台，也不是前任曝光区，而是帮助用户以更体面的方式处理带有情感记忆的旧礼物——通过讲述故事、温和流转，让每件礼物都能找到下一个归处。
 
-**正式项目页**（GitHub Pages）：https://conanxin.github.io/projects/aftergift-prototype/
+**产品气质**：温柔、克制、干净、有一点伤感。不鼓励报复、羞辱、猎奇或网暴。
 
-**草稿版**（含开发工具）：https://conanxin.github.io/drafts/aftergift-prototype/
+---
 
-**GitHub 独立仓库**：https://github.com/conanxin/aftergift
+## 项目状态
 
-## 当前状态
+| 状态 | 说明 |
+|------|------|
+| 🟡 Local Beta | 本地原型阶段，非生产就绪 |
+| 🔒 匿名身份 | 用户无需绑定真实手机号或邮箱 |
+| 🚫 无真实支付 | 当前不含支付、物流、交易撮合功能 |
+| 🔲 评论/私信 | Phase 3A-0 已完成设计评审，尚未实现 |
+| 📖 开源透明 | 所有代码、设计文档、阶段报告均在仓库中 |
 
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| Phase 1 | 静态产品 Demo | ✅ 完成 |
-| Phase 2A | 后端沙箱蓝图 | ✅ 完成 |
-| Phase 2B | FastAPI 骨架 + SQLite | ✅ 完成 |
-| Phase 2C | 前后端 local API 双模式联调 | ✅ 完成 |
-| Phase 2D | 匿名身份 + Admin 审核队列 UI | ✅ 完成 |
-| Phase 2E | PyJWT + Moderation Provider 抽象 | ✅ 完成 |
-| Phase 2F | Admin 增强 + 举报队列 | ✅ 完成 |
-| Phase 2G | 搜索 API + 我的发布/收藏 | ✅ 完成 |
-|| Phase 2H | 我的发布管理（编辑/重新提交/归档/恢复） | ✅ 完成 |
-|| Phase 2K-2 | 收藏数量 Badge + 排序 | ✅ 完成 |
-|| Phase 2L-1 | 社区功能准备（Community Readiness） | ✅ 完成 |
-|| Phase 2L-2 | 我的空间 / Private User Space | ✅ 完成 |
-|| Phase 2L-2.1 | My Space 稳定性修复 | ✅ 完成 |
-|| Phase 2M | 本地草稿管理 / Local Drafts Management | ✅ 完成 |
-|| Phase 3A-0 | 社区功能设计评审（评论政策/审核流程/滥用预防） | ✅ 完成 |
-|| Phase 3A-1 | 评论审核引擎 + 数据模型 | 🔲 下一步（需确认） |
+---
 
-## 目录结构
+## 功能清单
+
+### 已完成
+
+| 功能 | 说明 |
+|------|------|
+| 发布礼物故事 | 表单发布，支持匿名，附带故事和情绪标签 |
+| 浏览故事流 | 筛选（全部/出售/交换/赠送/捐出/只展示）+ 搜索 |
+| 匿名身份 | JWT Bearer Token，无需绑定真实账号 |
+| AI/规则审核 | OpenAI Moderation Provider 抽象，沙箱可用 |
+| 收藏故事 | 一键收藏我的收藏视图 |
+| 搜索与 Discovery | 按关键词、类型、情绪、关系筛选 |
+| 我的空间 | 发布管理（编辑/重新提交/归档/恢复）|
+| 本地草稿 | 自动草稿保存，`?view=drafts` 管理 |
+| Admin 审核台 | 举报队列、人工审核操作、审核日志 |
+| 社区治理设计 | 评论政策、审核流程、滥用预防（文档阶段）|
+
+### 未实现（设计阶段）
+
+| 功能 | 状态 |
+|------|------|
+| 评论功能 | Phase 3A-0 设计评审 ✅，实现待定 |
+| 私信功能 | 延后（风险高于评论） |
+| 真实支付/物流 | 需支付牌照和法律合规评估 |
+| 公开用户主页 | 延后（防止关系追踪骚扰） |
+
+---
+
+## 仓库结构
 
 ```
 aftergift/
-├── frontend/         # 静态 Web App 原型（HTML/CSS/JS）
-├── backend/           # FastAPI 后端 MVP
-│   ├── app/          # FastAPI 应用（routers, services, models）
-│   ├── scripts/       # 数据库初始化脚本
-│   ├── tests/        # 合同测试
-│   ├── docs/          # 后端文档（API 设计、审核流程、Auth 设计等）
-│   └── reports/       # 各 Phase 执行报告
-├── docs/             # 顶层文档索引
-└── reports/          # 顶层报告索引
+├── frontend/                    # 静态 Web App 原型
+│   ├── index.html              # 主页面
+│   ├── style.css               # 样式
+│   ├── app.js                  # 前端逻辑
+│   ├── api-client.js           # API 客户端封装
+│   ├── data/gifts.json         # 示例礼物数据（静态模式）
+│   └── docs/                   # 前端文档（产品规格、Changelog 等）
+├── backend/                    # FastAPI 后端 MVP
+│   ├── backend/
+│   │   ├── app/                # FastAPI 应用（routers, services, models）
+│   │   ├── scripts/            # 运维脚本（init_db, smoke_check, backup 等）
+│   │   ├── requirements.txt
+│   │   └── .env.example
+│   ├── migrations/             # SQLite migration SQL 文件
+│   ├── schema/                 # 建表 SQL + seed 数据
+│   ├── tests/                  # 合同测试（全量约 150 项）
+│   ├── docs/                   # 后端设计文档（API、Auth、审核流、Moderation 等）
+│   └── reports/                # 各 Phase 执行报告
+├── docs/                       # 顶层文档（部署、使用、路线图等）
+└── README.md
 ```
 
-## 本地前端运行
+---
+
+## 快速开始
+
+### 方式一：静态前端（无需后端）
 
 ```bash
 cd frontend
@@ -60,98 +93,167 @@ python3 -m http.server 8080
 # 打开 http://127.0.0.1:8080/
 ```
 
-默认以 **static 模式**运行（读取 `data/gifts.json`），不依赖后端。
+**重要 URL 参数**：
+- `http://127.0.0.1:8080/` — 首页浏览
+- `http://127.0.0.1:8080/?view=favorites` — 我的收藏
+- `http://127.0.0.1:8080/?view=me` — 我的发布
+- `http://127.0.0.1:8080/?view=drafts` — 我的草稿
 
-## 本地 API 联调（可选）
+### 方式二：前端 + 本地 FastAPI 后端
 
-需要先启动后端：
+**1. 初始化后端**：
 
 ```bash
 cd backend/backend
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-python scripts/init_db.py
+cp .env.example .env          # 编辑 .env，填入必要的环境变量
+python scripts/init_db.py     # 初始化 SQLite 数据库
+```
+
+**2. 启动后端**：
+
+```bash
+. .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 8091
 ```
 
-前端访问联调模式：
+**3. 以前端联调模式访问**：
 
 ```
 http://127.0.0.1:8080/?api=local
 ```
 
-访问 Admin 审核面板：
+**4. 进入 Admin 审核面板**：
 
 ```
 http://127.0.0.1:8080/?api=local&admin=1
 ```
 
-Admin token（本地开发）：`dev-admin-aftergift-001`
+Admin Token（本地开发用）：`dev-admin-aftergift-001`
+> ⚠️ 生产环境必须替换为强随机值。
 
-## Local Beta Readiness
+---
 
-当前版本已准备好小范围内测，包含以下支持：
+## 环境变量
 
-### 运维脚本
-- `backend/backend/scripts/smoke_check.py` — 一键检查本地 MVP 是否可运行
-- `backend/backend/scripts/backup_db.py` — 备份 SQLite 数据库
-- `backend/backend/scripts/export_public_data.py` — 导出 published gifts 脱敏数据
+在 `backend/backend/.env` 中配置：
 
-### 内测文档
-- `docs/BETA_TEST_PLAN.md` — 内测计划（测试路径、观察指标、风险观察）
-- `docs/BETA_FEEDBACK_FORM.md` — 可复制到问卷的反馈表
-- `docs/KNOWN_ISSUES.md` — 当前限制与已知问题
-- `docs/RELEASE_NOTES_PHASE2_LOCAL_BETA.md` — 内测版 Release Notes
-- `backend/docs/BETA_SEED_DATA.md` — 推荐 seed 数据规模和分布
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `AFTERGIFT_DB_PATH` | SQLite 数据库路径 | `aftergift_dev.db` |
+| `AFTERGIFT_ADMIN_TOKEN` | Admin 访问令牌 | `dev-admin-aftergift-001` |
+| `AFTERGIFT_JWT_SECRET` | JWT 签名密钥（生产需 32+ bytes）| `dev-jwt-secret-do-not-use-in-prod` |
+| `AFTERGIFT_MODERATION_PROVIDER` | 审核 Provider | `openai` |
+| `AFTERGIFT_ENABLE_REAL_AI_REVIEW` | 是否启用真实 AI 审核 | `false` |
+| `OPENAI_API_KEY` | OpenAI API Key（仅当 above 为 true 时）| `sk-...` |
 
-## 安全说明
+---
 
-- **不要提交 `.env`** — 环境变量文件包含敏感配置
-- **不要提交数据库文件** — `*.db`、`*.sqlite`、`aftergift_dev.db`
-- **当前 Token 是开发期方案** — HMAC-SHA256，非标准 JWT，仅限本地开发
-- **当前 AI 审核为 Mock** — `review_service.py` 使用正则规则，非真实外部 AI API
-- **Admin token 仅本地开发使用** — 生产环境必须更换为强认证机制
+## 运维脚本
 
-## 产品边界
+| 脚本 | 用途 |
+|------|------|
+| `backend/backend/scripts/init_db.py` | 初始化 SQLite 数据库和 seed 数据 |
+| `backend/backend/scripts/migrate_db.py` | 运行 pending migrations |
+| `backend/backend/scripts/smoke_check.py` | 一键检查服务是否正常运行 |
+| `backend/backend/scripts/backup_db.py` | 备份数据库到 `backups/` 目录 |
+| `backend/backend/scripts/export_public_data.py` | 导出 published 礼物脱敏数据 |
 
-- ❌ 不是前任曝光平台
-- ❌ 不是报复平台
-- ❌ 不是情感审判平台
-- ❌ 当前不含真实支付和物流
-- ❌ 当前不开放自由评论和私信
-- ✅ 是关系旧物的温柔流转与故事讲述平台
+---
 
-## 下一步路线
+## 测试
 
-### 推荐下一阶段：Phase 2I
-**基础内容推荐**
+```bash
+# 核心测试（推荐每次 CI 运行的子集）
+python3 backend/tests/test_auth_jwt.py
+python3 backend/tests/test_favorites_api.py
+python3 backend/tests/test_discovery_api.py
+python3 backend/tests/test_my_gifts.py
+python3 backend/tests/test_schema.py
 
-- 按情绪/关系类型推荐相似故事
-- 热门故事排序（收藏数/浏览数）
-- 新发布故事流
+# 全量测试（约 150 项）
+python3 backend/tests/test_favorites_api.py
+python3 backend/tests/test_my_gifts.py
+python3 backend/tests/test_my_actions_and_restore.py
+python3 backend/tests/test_auth_jwt.py
+python3 backend/tests/test_schema.py
+python3 backend/tests/test_discovery_api.py
+python3 backend/tests/test_my_gift_management.py
+python3 backend/tests/test_search_api.py
+python3 backend/tests/test_migrations.py
+python3 backend/tests/test_admin_enhancements.py
+python3 backend/tests/test_redaction.py
+python3 backend/tests/test_moderation_provider.py
+python3 backend/tests/test_openai_provider.py
+```
 
-### Phase 3A 边界
-- 收藏故事（已规划）
-- 匿名评论（低风险交互）
-- 匿名私信（需频率限制和反骚扰机制）
+---
 
-### Phase 3A 不包含
-- ❌ 自由发帖（需完整审核队列）
-- ❌ 真实支付（需支付牌照）
-- ❌ 真实物流（需物流 SDK 对接）
-- ❌ 公开社交网络（防止骚扰扩散）
+## 部署说明
+
+详见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)，简要说明：
+
+- **GitHub Pages**：只能托管 `frontend/` 静态文件，不含后端 API
+- **FastAPI 后端**：需要独立服务器（VPS / Docker），不支持 Serverless 静态部署
+- **SQLite**：适合本地/小规模内测；生产建议 PostgreSQL + 定期备份
+- **生产必须**：强 JWT secret（32+ bytes）、HTTPS、CORS allowlist、API 限速、Admin token 更换
+
+> 当前版本**不是生产就绪**。支付、评论（实现中）、私信均未完成，审核仍需人工兜底。
+
+---
+
+## 安全与内容政策
+
+- [`backend/docs/COMMUNITY_READINESS.md`](backend/docs/COMMUNITY_READINESS.md) — 社区功能就绪检查清单
+- [`backend/docs/COMMENTS_POLICY.md`](backend/docs/COMMENTS_POLICY.md) — 评论政策（设计阶段）
+- [`backend/docs/ABUSE_PREVENTION.md`](backend/docs/ABUSE_PREVENTION.md) — 滥用预防与威胁模型
+- [`frontend/docs/CONTENT_POLICY.md`](frontend/docs/CONTENT_POLICY.md) — 内容安全与伦理政策
+
+**核心原则**：
+- ❌ 不曝光他人姓名、照片、电话、地址、社交账号
+- ❌ 不发布侮辱、报复、控诉式内容
+- ❌ 不把他人真实身份作为卖点
+- ❌ 不鼓励网暴或猎奇
+- ✅ 匿名化叙述，聚焦物品和自身感受
+- ✅ 可以讲述关系，但不要暴露他人
+
+---
+
+## 路线图
+
+### 下一阶段（推荐）
+
+| Phase | 内容 | 说明 |
+|-------|------|------|
+| **Phase 3A-1** | 评论数据模型 + Migration | 创建 comments 表，先审后发，需确认 |
+| Phase 3A-2 | 评论审核引擎 | AI + 规则双层审核 |
+| Phase 3A-3 | Admin 评论队列 | 评论审核台 UI |
+| Phase 3A-4 | 温和评论 UI | 前端评论展示与交互 |
+
+### 延后阶段
+
+| Phase | 内容 | 说明 |
+|-------|------|------|
+| Phase 3B | 匿名中继私信 | 风险高于评论，建议评论稳定运行 3 个月后评估 |
+| Phase 4 | 交易/交换撮合 | 需法律和支付合规评估 |
+| Phase 5 | 生产部署 + PostgreSQL | 高并发支持 |
+| Phase 6 | 移动端 / PWA | 独立应用 |
+
+> 私信和支付功能**暂不确定是否实现**，需在评论系统稳定后再评估。
+
+---
 
 ## 推荐阅读顺序
 
-1. `frontend/docs/PRODUCT_SPEC.md` — 产品规格
-2. `frontend/docs/CONTENT_POLICY.md` — 内容安全与伦理政策
-3. `frontend/docs/API_INTEGRATION.md` — 前端 API 集成说明
-4. `backend/docs/PHASE2_PLAN.md` — Phase 2 完整路线图
-5. `backend/docs/BACKEND_SPEC.md` — 后端 MVP 设计
-6. `backend/docs/AUTH_DESIGN.md` — 匿名认证设计
-7. `backend/docs/ADMIN_REVIEW_UI.md` — 管理员审核 UI 设计
-8. `docs/NEXT_STEPS.md` — 为什么下一步是 Phase 2E
+1. [`frontend/docs/PRODUCT_SPEC.md`](frontend/docs/PRODUCT_SPEC.md) — 产品规格
+2. [`frontend/docs/CONTENT_POLICY.md`](frontend/docs/CONTENT_POLICY.md) — 内容安全与伦理政策
+3. [`backend/docs/BACKEND_SPEC.md`](backend/docs/BACKEND_SPEC.md) — 后端 MVP 设计
+4. [`backend/docs/AUTH_DESIGN.md`](backend/docs/AUTH_DESIGN.md) — 匿名认证设计
+5. [`backend/docs/PHASE2_PLAN.md`](backend/docs/PHASE2_PLAN.md) — Phase 2 完整路线图
+6. [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — 部署说明
+7. [`docs/ROADMAP.md`](docs/ROADMAP.md) — 完整路线图
 
 ---
 
