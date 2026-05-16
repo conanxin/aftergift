@@ -2281,6 +2281,13 @@ body.favorites-view .favorites-view-header {
 .msic-token-dot.valid { background: #22c55e; }
 .msic-token-dot.invalid { background: #ef4444; }
 
+.msic-token-note {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 .msic-footer {
   display: flex;
   align-items: center;

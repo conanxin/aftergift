@@ -63,7 +63,7 @@ GET /api/auth/me  (window.AftergiftAPI.getCurrentUser(token))
 | 我的收藏 | `GET /api/gifts?favorites_of=me&limit=1` → `total` |
 | 本地草稿 | `localStorage` 扫描 `aftergift_edit_draft_*` → count |
 
-统计数字在 `loadMySpaceData` 的 Promise 链中顺序获取（published + pending 并行预加载到 `window._ms_*` 变量，供 `renderMySpaceStats` 使用）。
+统计数字在 `loadMySpaceData` 的 `Promise.allSettled` 中并行获取（6 个 API 调用同时发出，结果独立渲染，失败不影响其他区块）。
 
 ### 3. 我的发布（内嵌前 3 条）
 
@@ -103,7 +103,7 @@ GET /api/me/actions?limit=5
 
 | 模块 | Static 模式行为 |
 |------|----------------|
-| 身份状态 | 显示"未登录"（因为无 token） |
+| 身份状态 | 显示"本地模式 · 不支持匿名身份" + 说明文案 |
 | 已发布 / 待审核 | 显示 `–` |
 | 我的收藏 | 从 `localStorage.aftergift_favorites` 读取计数 |
 | 本地草稿 | 扫描 `localStorage.aftergift_edit_draft_*` |
@@ -124,5 +124,5 @@ GET /api/me/actions?limit=5
 - `frontend/api-client.js` — `getCurrentUser`（已存在）
 
 ## 历史
-
 - Phase 2L-2（本文档）：新增我的空间视图（身份状态 + 统计卡片 + 发布列表 + 操作历史 + 草稿计数）
+- Phase 2L-2.1：Promise.allSettled 替代串行 Promise 链，消灭 `window._ms_*` 竞态；Static 模式身份文案改为"本地模式 · 不支持匿名身份"；每个数据区块独立失败处理

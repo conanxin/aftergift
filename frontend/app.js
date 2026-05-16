@@ -2583,7 +2583,7 @@
         return;
       }
 
-      renderMySpaceIdentity();
+      // Initial skeleton stats (filled by loadMySpaceData via Promise.allSettled)
       renderMySpaceStats({ published: '–', pending: '–', favorites: '–', drafts: '–' });
       loadMySpaceData();
     }
@@ -2597,7 +2597,10 @@
         ? window.AftergiftAPI.getStoredToken() : null;
 
       if (!token) {
-        body.innerHTML = '<div class="msic-nickname">未登录</div><div class="msic-token-status"><span class="msic-token-dot invalid"></span> 无效</div>';
+        body.innerHTML =
+          '<div class="msic-nickname">本地模式</div>' +
+          '<div class="msic-token-status"><span class="msic-token-dot invalid"></span> 不支持匿名身份</div>' +
+          '<div class="msic-token-note">当前是静态演示模式，身份、发布和操作历史需要在 API 模式下使用。</div>';
         return;
       }
 
@@ -2633,50 +2636,61 @@
         draftsCount = keys.filter(function (k) { return k.indexOf('aftergift_edit_draft_') === 0; }).length;
       } catch (e) {}
 
-      window.AftergiftAPI.listGifts({ mine: true, limit: 1 }, []).then(function (result) {
-        var publishedCount = result.total || 0;
-        return window.AftergiftAPI.listGifts({ mine: true, action_type: 'pending', limit: 1 }, []);
-      }).then(function (result) {
-        var pendingCount = result.total || 0;
-        return window.AftergiftAPI.listGifts({ favorites_of: 'me', limit: 1 }, []);
-      }).then(function (result) {
-        var favoritesCount = result.total || 0;
+      // Phase 2L-2.1: use Promise.allSettled — no more window._ms_* race condition
+      Promise.allSettled([
+        window.AftergiftAPI.getCurrentUser(token),
+        window.AftergiftAPI.listGifts({ mine: true, limit: 1 }, []),
+        window.AftergiftAPI.listGifts({ mine: true, action_type: 'pending', limit: 1 }, []),
+        window.AftergiftAPI.listGifts({ favorites_of: 'me', limit: 1 }, []),
+        window.AftergiftAPI.getMyActions({ limit: 5 }),
+        window.AftergiftAPI.listGifts({ mine: true, limit: 3 }, [])
+      ]).then(function (results) {
+        // Identity
+        if (results[0].status === 'fulfilled') {
+          var user = results[0].value;
+          var body = document.getElementById('mySpaceIdentityBody');
+          if (body) {
+            body.innerHTML =
+              '<div class="msic-nickname">' + escHtml(user.anonymous_nickname || user.nickname || '匿名用户') + '</div>' +
+              '<div class="msic-token-status"><span class="msic-token-dot valid"></span> 身份有效 · ' + escHtml(user.user_id || '') + '</div>';
+          }
+        }
+
+        // Stats
+        var publishedCount = results[1].status === 'fulfilled' ? (results[1].value.total || 0) : '–';
+        var pendingCount = results[2].status === 'fulfilled' ? (results[2].value.total || 0) : '–';
+        var favoritesCount = results[3].status === 'fulfilled' ? (results[3].value.total || 0) : '–';
         renderMySpaceStats({
-          published: window._ms_publishedCount || '–',
-          pending: window._ms_pendingCount || '–',
+          published: publishedCount,
+          pending: pendingCount,
           favorites: favoritesCount,
           drafts: draftsCount
         });
-        return window.AftergiftAPI.listGifts({ mine: true, limit: 3 }, []);
-      }).then(function (result) {
-        renderMySpaceGiftList(result.items || []);
-        return window.AftergiftAPI.getMyActions({ limit: 5 });
-      }).then(function (actions) {
-        renderMySpaceActionList(actions || []);
-      }).catch(function (err) {
+
+        // My published list
+        if (results[5].status === 'fulfilled') {
+          renderMySpaceGiftList(results[5].value.items || []);
+        } else {
+          var gl = document.getElementById('mySpaceGiftList');
+          if (gl) gl.innerHTML = '<div class="my-space-loading">暂时无法加载发布列表。</div>';
+        }
+
+        // Action history
+        if (results[4].status === 'fulfilled') {
+          renderMySpaceActionList(results[4].value || []);
+        } else {
+          var al = document.getElementById('mySpaceActionList');
+          if (al) al.innerHTML = '<div class="my-space-loading">暂时无法加载操作历史。</div>';
+        }
+      }).catch(function () {
+        // Fallback: show stats with what we have
         renderMySpaceStats({ published: '–', pending: '–', favorites: '–', drafts: draftsCount });
-        var gl = document.getElementById('mySpaceGiftList');
-        if (gl) gl.innerHTML = '<div class="my-space-loading">无法加载数据，请检查 API 连接。</div>';
-        var al = document.getElementById('mySpaceActionList');
-        if (al) al.innerHTML = '<div class="my-space-loading">无法加载操作历史。</div>';
       });
     }
 
-    // Pre-load counts for stats display
-    (function () {
-      var token = (window.AftergiftAPI && window.AftergiftAPI.getStoredToken)
-        ? window.AftergiftAPI.getStoredToken() : null;
-      if (!token) return;
-      window.AftergiftAPI.listGifts({ mine: true, limit: 1 }, []).then(function (r) {
-        window._ms_publishedCount = r.total || 0;
-        return window.AftergiftAPI.listGifts({ mine: true, action_type: 'pending', limit: 1 }, []);
-      }).then(function (r) {
-        window._ms_pendingCount = r.total || 0;
-      }).catch(function () {});
-    })();
+// ── End Favorites View ──────────────────────────────────────────────────
 
     function renderMySpaceStatic() {
-      renderMySpaceIdentity();
       var draftsCount = 0;
       try {
         var keys = Object.keys(localStorage);
